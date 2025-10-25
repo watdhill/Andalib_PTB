@@ -16,8 +16,7 @@ sealed class Screen(val route: String) {
     object Start : Screen("start")
     object Login : Screen("login")
     object SignUp : Screen("signup")
-    object Home : Screen("home") // Pastikan ini ada
-
+    object Main : Screen("main") // Main screen dengan bottom navigation
 }
 
 // Kredensial Admin
@@ -50,8 +49,8 @@ fun AndalibNavigation(navController: NavHostController) {
                 onLoginClicked = { email, password ->
                     // Logika pengecekan
                     if (email == ADMIN_EMAIL && password == ADMIN_PASS) {
-                        // Login berhasil
-                        navController.navigate(Screen.Home.route) {
+                        // Login berhasil - navigasi ke MainScreen
+                        navController.navigate(Screen.Main.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     } else {
@@ -72,7 +71,10 @@ fun AndalibNavigation(navController: NavHostController) {
         composable(route = Screen.SignUp.route) {
             SignUpScreen(
                 onSignUpClicked = {
-                    // TODO: Implement signup logic
+                    // Setelah signup berhasil, langsung ke MainScreen
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.SignUp.route) { inclusive = true }
+                    }
                 },
                 onLoginClicked = {
                     navController.popBackStack(Screen.Login.route, inclusive = false)
@@ -83,12 +85,10 @@ fun AndalibNavigation(navController: NavHostController) {
             )
         }
 
-        // == TAMBAHKAN BLOK INI ==
-        // Rute untuk Home Screen
-        composable(route = Screen.Home.route) {
+        // Main Screen dengan Bottom Navigation
+        composable(route = Screen.Main.route) {
             HomeScreen()
         }
-        // =======================
     }
 }
 
@@ -105,8 +105,8 @@ fun NavHostController.navigateToSignUp() {
     this.navigate(Screen.SignUp.route)
 }
 
-fun NavHostController.navigateToHome() {
-    this.navigate(Screen.Home.route) {
+fun NavHostController.navigateToMain() {
+    this.navigate(Screen.Main.route) {
         popUpTo(Screen.Login.route) { inclusive = true }
     }
 }
