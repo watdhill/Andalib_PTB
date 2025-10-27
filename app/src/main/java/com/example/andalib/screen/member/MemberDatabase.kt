@@ -82,8 +82,8 @@ class MemberDatabase(context: Context) :
                     id = cursor.getInt(0),
                     name = cursor.getString(1),
                     nim = cursor.getString(2),
-                    major = cursor.getString(3),
-                    faculty = cursor.getString(4),
+                    faculty = cursor.getString(3) ?: "", // <-- Ambil faculty
+                    major = cursor.getString(4) ?: "",   // <-- Ambil major
                     contact = cursor.getString(5),
                     email = cursor.getString(6),
                     photoPath = cursor.getString(7) ?: "",
