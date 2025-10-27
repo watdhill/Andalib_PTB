@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,16 +24,34 @@ import com.example.andalib.components.AndalibPasswordField
 import com.example.andalib.components.AndalibButton
 import com.example.andalib.components.ClickableAuthText
 import com.example.andalib.ui.theme.*
+import kotlinx.coroutines.delay
+import androidx.compose.material.icons.filled.Warning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginClicked: (String, String) -> Unit = { _, _ -> },
+    // MODIFIKASI: Tambahkan errorCallback handler ke parameter
+    onLoginClicked: (String, String, (String) -> Unit) -> Unit = { _, _, _ -> },
     onSignUpClicked: () -> Unit = {},
     onBackClicked: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    // STATE UNTUK NOTIFIKASI ERROR
+    var showNotification by remember { mutableStateOf(false) }
+    var notificationMessage by remember { mutableStateOf("") }
+
+    // Callback untuk menampilkan Snackbar saat login gagal
+    val failureCallback: (String) -> Unit = { message ->
+        notificationMessage = message
+        showNotification = true
+    }
+
+    // Handler saat tombol diklik
+    val handleLogin = {
+        onLoginClicked(email, password, failureCallback)
+    }
 
     Scaffold(
         topBar = {
@@ -58,18 +75,40 @@ fun LoginScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: info action */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
-                            tint = AndalibWhite.copy(alpha = 0.8f)
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(48.dp))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AndalibDarkBlue
                 )
             )
+        },
+        // MENAMBAHKAN SNACKBAR HOST
+        snackbarHost = {
+            if (showNotification) {
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { showNotification = false }) {
+                            Text("OK", color = AndalibWhite)
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.error // Gunakan warna error (merah)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AndalibWhite
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(notificationMessage, color = AndalibWhite)
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    delay(3000)
+                    showNotification = false
+                }
+            }
         },
         containerColor = AndalibWhite
     ) { paddingValues ->
@@ -155,7 +194,7 @@ fun LoginScreen(
                 onValueChange = { password = it },
                 label = "Password",
                 keyboardActions = KeyboardActions(
-                    onDone = { onLoginClicked(email, password) }
+                    onDone = { handleLogin() } // Gunakan handler baru
                 )
             )
 
@@ -164,7 +203,7 @@ fun LoginScreen(
             // --- Tombol Login ---
             AndalibButton(
                 text = "Log in",
-                onClick = { onLoginClicked(email, password) }
+                onClick = { handleLogin() } // Gunakan handler baru
             )
 
             Spacer(Modifier.weight(1f))
