@@ -32,6 +32,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.andalib.createImageFile
+import com.example.andalib.saveImageToInternalStorage
+import com.example.andalib.ui.theme.AndalibDarkBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,7 +97,7 @@ fun MembersScreen() {
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = AndalibDarkBlue,
                     titleContentColor = Color.White
                 ),
                 actions = {
@@ -805,22 +808,3 @@ fun AddEditMemberView(
     }
 }
 
-fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): String {
-    val inputStream = context.contentResolver.openInputStream(uri)
-    val fileName = "${prefix}_${System.currentTimeMillis()}.jpg"
-    val file = File(context.filesDir, fileName)
-
-    inputStream?.use { input ->
-        FileOutputStream(file).use { output ->
-            input.copyTo(output)
-        }
-    }
-
-    return file.absolutePath
-}
-
-fun createImageFile(context: Context, prefix: String): File {
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val fileName = "${prefix}_${timeStamp}.jpg"
-    return File(context.filesDir, fileName)
-}

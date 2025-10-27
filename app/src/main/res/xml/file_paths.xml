@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="&#xA;&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?>&#xA;&lt;paths xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>&#xA;    &lt;files-path name=&quot;member_images&quot; path=&quot;/&quot; />&#xA;    &lt;cache-path name=&quot;cache&quot; path=&quot;/&quot; />&#xA;&lt;/paths>" />
-</PreferenceScreen>
+    <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="internal_files" path="/" />
+    </paths>

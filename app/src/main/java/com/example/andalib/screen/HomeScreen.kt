@@ -17,6 +17,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.andalib.bottomNavItems
 import com.example.andalib.screen.member.MembersScreen
+import com.example.andalib.ui.theme.AndalibDarkBlue
 
 @Composable
 fun HomeScreen() {
@@ -108,7 +109,7 @@ fun HomeContent() {
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = AndalibDarkBlue,
                     titleContentColor = Color.White
                 )
             )

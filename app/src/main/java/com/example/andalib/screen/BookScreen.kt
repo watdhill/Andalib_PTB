@@ -29,7 +29,9 @@ import android.graphics.BitmapFactory
 import com.example.andalib.Book
 import com.example.andalib.BookDatabase
 import java.io.File
-import java.io.FileOutputStream
+import com.example.andalib.saveImageToInternalStorage
+import com.example.andalib.ui.theme.AndalibDarkBlue
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +88,7 @@ fun BookScreen() {
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = AndalibDarkBlue,
                     titleContentColor = Color.White
                 ),
                 actions = {
@@ -504,7 +506,7 @@ fun AddEditBookView(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            val savedPath = saveImageToInternalStorage(context, it)
+            val savedPath = saveImageToInternalStorage(context, it, "book_cover")
             onCoverPathChange(savedPath)
         }
     }
@@ -645,16 +647,3 @@ fun AddEditBookView(
     }
 }
 
-fun saveImageToInternalStorage(context: Context, uri: Uri): String {
-    val inputStream = context.contentResolver.openInputStream(uri)
-    val fileName = "book_cover_${System.currentTimeMillis()}.jpg"
-    val file = File(context.filesDir, fileName)
-
-    inputStream?.use { input ->
-        FileOutputStream(file).use { output ->
-            input.copyTo(output)
-        }
-    }
-
-    return file.absolutePath
-}
