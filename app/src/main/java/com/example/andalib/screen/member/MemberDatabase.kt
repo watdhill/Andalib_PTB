@@ -8,7 +8,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MemberDatabase(context: Context) :
-    SQLiteOpenHelper(context, "members.db", null, 1) {
+// PERBAIKAN 1: Naikkan versi DB (misal dari 2 ke 3)
+    SQLiteOpenHelper(context, "members.db", null, 3) {
 
     override fun onCreate(db: SQLiteDatabase?) {
         db?.execSQL("""
@@ -16,16 +17,19 @@ class MemberDatabase(context: Context) :
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 nim TEXT NOT NULL UNIQUE,
+                gender TEXT NOT NULL, 
+                faculty TEXT NOT NULL,
                 major TEXT NOT NULL,
                 contact TEXT NOT NULL,
                 email TEXT NOT NULL,
                 photo_path TEXT,
                 registration_date TEXT NOT NULL
             )
-        """)
+        """) // <-- PERBAIKAN 2: Tambahkan "gender TEXT NOT NULL"
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
+        // Skema lama akan dihapus dan dibuat ulang
         db?.execSQL("DROP TABLE IF EXISTS members")
         onCreate(db)
     }
@@ -34,6 +38,8 @@ class MemberDatabase(context: Context) :
         val values = ContentValues().apply {
             put("name", member.name)
             put("nim", member.nim)
+            put("gender", member.gender) // <-- PERBAIKAN 3: Tambahkan gender
+            put("faculty", member.faculty)
             put("major", member.major)
             put("contact", member.contact)
             put("email", member.email)
@@ -50,18 +56,20 @@ class MemberDatabase(context: Context) :
             null
         )
 
+        // PERBAIKAN 4: Perbarui indeks kolom
         if (cursor.moveToFirst()) {
             do {
                 members.add(Member(
                     id = cursor.getInt(0),
                     name = cursor.getString(1),
                     nim = cursor.getString(2),
-                    major = cursor.getString(3),
-                    faculty = cursor.getString(3),
-                    contact = cursor.getString(5),
-                    email = cursor.getString(6),
-                    photoPath = cursor.getString(7) ?: "",
-                    registrationDate = cursor.getString(8) ?: ""
+                    gender = cursor.getString(3),           // <-- Indeks 3
+                    faculty = cursor.getString(4),          // <-- Indeks 4
+                    major = cursor.getString(5),            // <-- Indeks 5
+                    contact = cursor.getString(6),          // <-- Indeks 6
+                    email = cursor.getString(7),            // <-- Indeks 7
+                    photoPath = cursor.getString(8) ?: "",  // <-- Indeks 8
+                    registrationDate = cursor.getString(9) ?: "" // <-- Indeks 9
                 ))
             } while (cursor.moveToNext())
         }
@@ -72,22 +80,24 @@ class MemberDatabase(context: Context) :
     fun searchMembers(query: String): List<Member> {
         val members = mutableListOf<Member>()
         val cursor = readableDatabase.rawQuery(
-            "SELECT * FROM members WHERE name LIKE ? OR nim LIKE ? OR major LIKE ?",
-            arrayOf("%$query%", "%$query%", "%$query%")
+            "SELECT * FROM members WHERE name LIKE ? OR nim LIKE ? OR faculty LIKE ? OR major LIKE ?",
+            arrayOf("%$query%", "%$query%", "%$query%", "%$query%")
         )
 
+        // PERBAIKAN 5: Perbarui indeks kolom
         if (cursor.moveToFirst()) {
             do {
                 members.add(Member(
                     id = cursor.getInt(0),
                     name = cursor.getString(1),
                     nim = cursor.getString(2),
-                    faculty = cursor.getString(3) ?: "", // <-- Ambil faculty
-                    major = cursor.getString(4) ?: "",   // <-- Ambil major
-                    contact = cursor.getString(5),
-                    email = cursor.getString(6),
-                    photoPath = cursor.getString(7) ?: "",
-                    registrationDate = cursor.getString(8) ?: ""
+                    gender = cursor.getString(3),           // <-- Indeks 3
+                    faculty = cursor.getString(4),          // <-- Indeks 4
+                    major = cursor.getString(5),            // <-- Indeks 5
+                    contact = cursor.getString(6),          // <-- Indeks 6
+                    email = cursor.getString(7),            // <-- Indeks 7
+                    photoPath = cursor.getString(8) ?: "",  // <-- Indeks 8
+                    registrationDate = cursor.getString(9) ?: "" // <-- Indeks 9
                 ))
             } while (cursor.moveToNext())
         }
@@ -99,6 +109,8 @@ class MemberDatabase(context: Context) :
         val values = ContentValues().apply {
             put("name", member.name)
             put("nim", member.nim)
+            put("gender", member.gender) // <-- PERBAIKAN 6: Tambahkan gender
+            put("faculty", member.faculty)
             put("major", member.major)
             put("contact", member.contact)
             put("email", member.email)

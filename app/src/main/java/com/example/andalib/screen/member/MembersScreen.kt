@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Notes // Ganti jika ikon tidak ada
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,11 +35,34 @@ import androidx.compose.ui.res.painterResource
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.example.andalib.R // Pastikan import R ada
+
+// Impor helper yang benar dari Utils.kt
+import com.example.andalib.createImageFile
+import com.example.andalib.saveImageToInternalStorage
+
 import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
+
+// Data Fakultas dan Jurusan
+private val facultyMajorsMap: Map<String, List<String>> = mapOf(
+    "Fakultas Hukum" to listOf("Ilmu Hukum"),
+    "Fakultas Pertanian" to listOf("Agribisnis", "Agroteknologi", "Ilmu Tanah", "Proteksi tanaman", "Penyuluhan Pertanian", "Agroekoteknologi"),
+    "Fakultas Kedokteran" to listOf("Pendidikan dokter", "Kebidanan", "Psikologi", "Ilmu Biomedis"),
+    "Fakultas Matematika & Ilmu Pengetahuan Alam" to listOf("Kimia", "Biologi", "Matematika", "Fisika"),
+    "Fakultas Ekonomi & Bisnis" to listOf("Ekonomi", "Manajemen", "Akuntansi"),
+    "Fakultas Peternakan" to listOf("Peternakan"),
+    "Fakultas Ilmu Budaya" to listOf("Ilmu Sejarah", "Sastra Inggris", "Sastra Indonesia", "Sastra Minangkabau", "Sastra Jepang"),
+    "Fakultas Ilmu Sosial & Ilmu Politik" to listOf("Ilmu Politik", "Sosiologi", "Antropologi Sosial", "Ilmu Hubungan Internasional", "Ilmu Komunikasi", "Administrasi Publik"),
+    "Fakultas Teknik" to listOf("Teknik Mesin", "Teknik Sipil", "Teknik Lingkungan", "Teknik Industri", "Teknik Elektro"),
+    "Fakultas Farmasi" to listOf("Farmasi"),
+    "Fakultas Teknologi Pertanian" to listOf("Teknologi pangan dan Hasil Pertanian", "Teknik Pertanian dan biosistem", "Teknologi Industri Pertanian"),
+    "Fakultas Kesehatan Masyarakat" to listOf("Kesehatan Masyarakat", "Gizi"),
+    "Fakultas Keperawatan" to listOf("Keperawatan"),
+    "Fakultas Kedokteran Gigi" to listOf("Pendidikan Dokter Gigi"),
+    "Fakultas Teknologi Informasi" to listOf("Sistem Informasi", "Informatika", "Teknik Komputer")
+)
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,8 +88,9 @@ fun MembersScreen() {
     // State untuk form
     var formName by remember { mutableStateOf("") }
     var formNim by remember { mutableStateOf("") }
-    var formFaculty by remember { mutableStateOf("") } // State Fakultas
-    var formMajor by remember { mutableStateOf("") } // State Jurusan
+    var formGender by remember { mutableStateOf("") }
+    var formFaculty by remember { mutableStateOf("") }
+    var formMajor by remember { mutableStateOf("") }
     var formContact by remember { mutableStateOf("") }
     var formEmail by remember { mutableStateOf("") }
     var formPhotoPath by remember { mutableStateOf("") }
@@ -74,7 +98,7 @@ fun MembersScreen() {
     val filteredMembers = if (searchQuery.isEmpty()) {
         members
     } else {
-        database.searchMembers(searchQuery) // Gunakan search dari DB
+        database.searchMembers(searchQuery)
     }
 
     fun refreshMembersView() {
@@ -89,8 +113,9 @@ fun MembersScreen() {
     fun resetForm() {
         formName = ""
         formNim = ""
-        formFaculty = "" // Reset Fakultas
-        formMajor = "" // Reset Jurusan
+        formGender = ""
+        formFaculty = ""
+        formMajor = ""
         formContact = ""
         formEmail = ""
         formPhotoPath = ""
@@ -114,16 +139,6 @@ fun MembersScreen() {
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 ),
-                actions = {
-                    if (currentView == "list") {
-                        IconButton(onClick = {
-                            resetForm()
-                            currentView = "add"
-                        }) {
-                            Icon(Icons.Default.Add, "Tambah Anggota", tint = Color.White)
-                        }
-                    }
-                },
                 navigationIcon = {
                     if (currentView != "list") {
                         IconButton(onClick = {
@@ -137,8 +152,21 @@ fun MembersScreen() {
                 }
             )
         },
+        floatingActionButton = {
+            if (currentView == "list") {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        resetForm()
+                        currentView = "add"
+                    },
+                    icon = { Icon(Icons.Default.Add, contentDescription = "Tambah Anggota") },
+                    text = { Text("Tambah Anggota") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            }
+        },
         snackbarHost = {
-            // ... (Snackbar code remains the same) ...
             if (showNotification) {
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
@@ -162,9 +190,9 @@ fun MembersScreen() {
                 onSearchChange = { searchQuery = it },
                 onMemberClick = { member ->
                     selectedMember = member
-                    // Isi form untuk persiapan detail/edit
                     formName = member.name
                     formNim = member.nim
+                    formGender = member.gender
                     formFaculty = member.faculty
                     formMajor = member.major
                     formContact = member.contact
@@ -178,7 +206,7 @@ fun MembersScreen() {
             "detail" -> selectedMember?.let { member ->
                 MemberDetailView(
                     member = member,
-                    onEdit = { currentView = "edit" }, // Langsung ke edit karena form sudah diisi
+                    onEdit = { currentView = "edit" },
                     onDelete = { showDeleteDialog = true },
                     modifier = Modifier.padding(padding)
                 )
@@ -186,35 +214,38 @@ fun MembersScreen() {
 
             "add", "edit" -> AddEditMemberView(
                 isEdit = currentView == "edit",
-                // Berikan state form
                 name = formName,
                 nim = formNim,
-                faculty = formFaculty, // <-- Berikan state Fakultas
-                major = formMajor,     // <-- Berikan state Jurusan
+                gender = formGender,
+                faculty = formFaculty,
+                major = formMajor,
                 contact = formContact,
                 email = formEmail,
                 photoPath = formPhotoPath,
-                // Berikan lambda untuk update state form
                 onNameChange = { formName = it },
                 onNimChange = { formNim = it },
-                onFacultyChange = { formFaculty = it }, // <-- Berikan lambda Fakultas
-                onMajorChange = { formMajor = it },     // <-- Berikan lambda Jurusan
+                onGenderChange = { formGender = it },
+                onFacultyChange = {
+                    formFaculty = it
+                    formMajor = ""
+                },
+                onMajorChange = { formMajor = it },
                 onContactChange = { formContact = it },
                 onEmailChange = { formEmail = it },
                 onPhotoPathChange = { formPhotoPath = it },
                 onSave = {
-                    // Validasi
-                    if (formName.isNotEmpty() && formNim.isNotEmpty() && formFaculty.isNotEmpty() && formMajor.isNotEmpty() && formContact.isNotEmpty()) {
+                    if (formName.isNotEmpty() && formNim.isNotEmpty() && formGender.isNotEmpty() && formFaculty.isNotEmpty() && formMajor.isNotEmpty() && formContact.isNotEmpty()) {
                         val memberData = Member(
                             id = selectedMember?.id ?: 0,
                             name = formName,
                             nim = formNim,
-                            faculty = formFaculty, // <-- Sertakan Fakultas
-                            major = formMajor,     // <-- Sertakan Jurusan
+                            gender = formGender,
+                            faculty = formFaculty,
+                            major = formMajor,
                             contact = formContact,
                             email = formEmail,
-                            photoPath = formPhotoPath
-                            // registrationDate akan diisi otomatis oleh DB jika menggunakan DEFAULT CURRENT_TIMESTAMP
+                            photoPath = formPhotoPath,
+                            registrationDate = selectedMember?.registrationDate ?: ""
                         )
 
                         if (currentView == "add") {
@@ -237,9 +268,7 @@ fun MembersScreen() {
         }
     }
 
-    // Dialog Konfirmasi Hapus
     if (showDeleteDialog) {
-        // ... (AlertDialog code remains the same) ...
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Hapus Anggota") },
@@ -247,7 +276,6 @@ fun MembersScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     selectedMember?.let { member ->
-                        // Hapus file foto jika ada sebelum hapus dari DB
                         if (member.photoPath.isNotEmpty()) {
                             try {
                                 File(member.photoPath).delete()
@@ -286,7 +314,6 @@ fun MemberListView(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        // Search Bar (tetap sama)
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
@@ -299,12 +326,11 @@ fun MemberListView(
             shape = RoundedCornerShape(12.dp)
         )
 
-        // Daftar Anggota
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp)
         ) {
-            if (members.isEmpty() && searchQuery.isEmpty()) { // Tampil jika list kosong & tidak sedang mencari
+            if (members.isEmpty() && searchQuery.isEmpty()) {
                 item {
                     Text(
                         "Belum ada data anggota. Tekan tombol '+' untuk menambah.",
@@ -313,7 +339,7 @@ fun MemberListView(
                         textAlign = TextAlign.Center
                     )
                 }
-            } else if (members.isEmpty() && searchQuery.isNotEmpty()) { // Tampil jika hasil cari kosong
+            } else if (members.isEmpty() && searchQuery.isNotEmpty()) {
                 item {
                     Text(
                         "Anggota '$searchQuery' tidak ditemukan.",
@@ -348,35 +374,40 @@ fun MemberItem(member: Member, onClick: () -> Unit) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Foto Profil Bulat
+            val defaultImage = if (member.gender == "Perempuan") {
+                R.drawable.default_wanita
+            } else {
+                R.drawable.default_pria
+            }
+
             AsyncImage(
-                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else R.drawable.default_pria, // Tampilkan default jika kosong
+                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else defaultImage,
                 contentDescription = "Foto ${member.name}",
                 modifier = Modifier
                     .size(50.dp)
                     .clip(CircleShape)
-                    .background(Color.LightGray), // Background jika gambar gagal load
+                    .background(Color.LightGray),
                 contentScale = ContentScale.Crop,
                 onError = { Log.e("MemberItem", "Gagal load gambar: ${member.photoPath}", it.result.throwable) },
-                placeholder = painterResource(id = R.drawable.default_pria) // Placeholder default
+                placeholder = painterResource(id = defaultImage)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Info Anggota
             Column(modifier = Modifier.weight(1f)) {
                 Text(member.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(member.nim, fontSize = 14.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(2.dp))
-                Text( // Tampilkan Fakultas & Jurusan
-                    text = "${member.faculty} / ${member.major}",
+                // --- PERBAIKAN DI SINI ---
+                Text(
+                    text = member.faculty, // Hanya tampilkan fakultas
                     fontSize = 12.sp,
                     color = Color.Gray,
                     maxLines = 1
                 )
+                // --- AKHIR PERBAIKAN ---
             }
-            // Icon panah kanan (opsional)
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
         }
     }
@@ -398,9 +429,14 @@ fun MemberDetailView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            // Foto Profil Besar
+            val defaultImage = if (member.gender == "Perempuan") {
+                R.drawable.default_wanita
+            } else {
+                R.drawable.default_pria
+            }
+
             AsyncImage(
-                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else R.drawable.default_pria,
+                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else defaultImage,
                 contentDescription = "Foto ${member.name}",
                 modifier = Modifier
                     .size(150.dp)
@@ -408,19 +444,16 @@ fun MemberDetailView(
                     .background(Color.LightGray),
                 contentScale = ContentScale.Crop,
                 onError = { Log.e("MemberDetail", "Gagal load gambar: ${member.photoPath}", it.result.throwable) },
-                placeholder = painterResource(id = R.drawable.default_pria)
+                placeholder = painterResource(id = defaultImage)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Nama Besar
             Text(member.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
-            // NIM di bawah nama
             Text("NIM: ${member.nim}", fontSize = 16.sp, color = Color.Gray)
-            // Tanggal Registrasi
             Text(
-                text = "Terdaftar: ${member.registrationDate}", // Tampilkan tanggal
+                text = "Terdaftar: ${member.registrationDate}",
                 fontSize = 12.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(top = 4.dp)
@@ -428,8 +461,8 @@ fun MemberDetailView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Detail Info dalam Card
-            InfoCard( // Gunakan Composable InfoCard
+            InfoCard(
+                gender = member.gender,
                 faculty = member.faculty,
                 major = member.major,
                 contact = member.contact,
@@ -438,7 +471,6 @@ fun MemberDetailView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Tombol Edit & Hapus
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onEdit, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Edit, contentDescription = null)
@@ -455,29 +487,28 @@ fun MemberDetailView(
                     Text("Hapus")
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp)) // Jarak bawah
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-// Card Info Detail (dipisah agar rapi)
 @Composable
-fun InfoCard(faculty: String, major: String, contact: String, email: String) {
+fun InfoCard(gender: String, faculty: String, major: String, contact: String, email: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
+            DetailRowMember(icon = Icons.Default.Wc, label = "Jenis Kelamin", value = gender)
             DetailRowMember(icon = Icons.Default.School, label = "Fakultas", value = faculty)
-            DetailRowMember(icon = Icons.AutoMirrored.Filled.Notes, label = "Jurusan", value = major) // Ikon notes
+            DetailRowMember(icon = Icons.AutoMirrored.Filled.Notes, label = "Jurusan", value = major)
             DetailRowMember(icon = Icons.Default.Phone, label = "Kontak", value = contact)
-            DetailRowMember(icon = Icons.Default.Email, label = "Email", value = email) // Tambahkan Email
+            DetailRowMember(icon = Icons.Default.Email, label = "Email", value = email)
         }
     }
 }
 
-// Baris Detail dengan Ikon (dipisah agar rapi)
 @Composable
 fun DetailRowMember(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    if (value.isNotEmpty()) { // Hanya tampilkan jika ada value
-        Column(modifier = Modifier.padding(bottom = 12.dp)) { // Tambah padding bawah
+    if (value.isNotEmpty()) {
+        Column(modifier = Modifier.padding(bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(16.dp))
@@ -488,33 +519,34 @@ fun DetailRowMember(icon: androidx.compose.ui.graphics.vector.ImageVector, label
                     fontSize = 12.sp
                 )
             }
-            Text( // Value di bawah label
+            Text(
                 text = value,
                 fontSize = 16.sp,
-                modifier = Modifier.padding(start = 36.dp) // Indentasi value
+                modifier = Modifier.padding(start = 36.dp)
             )
         }
-        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp) // Pemisah
+        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp)
     }
 }
 
 
-// --- Composable untuk Form Tambah/Edit Anggota (PERBAIKAN FAKULTAS & JURUSAN) ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditMemberView(
     isEdit: Boolean,
     name: String,
     nim: String,
-    faculty: String, // State untuk Fakultas
-    major: String,   // State untuk Jurusan
+    gender: String,
+    faculty: String,
+    major: String,
     contact: String,
     email: String,
     photoPath: String,
     onNameChange: (String) -> Unit,
     onNimChange: (String) -> Unit,
-    onFacultyChange: (String) -> Unit, // Lambda untuk Fakultas
-    onMajorChange: (String) -> Unit,   // Lambda untuk Jurusan
+    onGenderChange: (String) -> Unit,
+    onFacultyChange: (String) -> Unit,
+    onMajorChange: (String) -> Unit,
     onContactChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPhotoPathChange: (String) -> Unit,
@@ -522,21 +554,17 @@ fun AddEditMemberView(
     context: Context,
     modifier: Modifier = Modifier
 ) {
-    var facultyExpanded by remember { mutableStateOf(false) } // State dropdown fakultas
-    // Daftar Fakultas
-    val facultyList = remember { // Gunakan remember agar list tidak dibuat ulang
-        listOf(
-            "Fakultas Kedokteran", "Fakultas Kedokteran Gigi", "Fakultas Farmasi",
-            "Fakultas Pertanian", "Fakultas Peternakan", "Fakultas Ekonomi dan Bisnis",
-            "Fakultas MIPA", "Fakultas ISIP", "Fakultas Teknik",
-            "Fakultas Ilmu Budaya", "Fakultas Teknologi Informasi", "Fakultas Keperawatan",
-            "Fakultas Kesehatan Masyarakat", "Fakultas Teknologi Pertanian", "Fakultas Hukum"
-        )
+    var facultyExpanded by remember { mutableStateOf(false) }
+    var majorExpanded by remember { mutableStateOf(false) }
+
+    val facultyList = remember { facultyMajorsMap.keys.sorted() }
+
+    val majorList = remember(faculty) {
+        facultyMajorsMap[faculty] ?: emptyList()
     }
 
-    // State dan launcher untuk image picker
     var showImageSourceDialog by remember { mutableStateOf(false) }
-    var tempCameraImageUri by remember { mutableStateOf<Uri?>(null) } // Simpan URI kamera sementara
+    var tempCameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -547,7 +575,6 @@ fun AddEditMemberView(
                 onPhotoPathChange(savedPath)
             } else {
                 Log.e("AddEditMemberView", "Gagal menyimpan gambar dari galeri")
-                // Tampilkan pesan error jika perlu
             }
         }
     }
@@ -562,32 +589,10 @@ fun AddEditMemberView(
                     onPhotoPathChange(savedPath)
                 } else {
                     Log.e("AddEditMemberView", "Gagal menyimpan gambar dari kamera")
-                    // Tampilkan pesan error jika perlu
                 }
             }
         }
-        tempCameraImageUri = null // Reset URI sementara
-    }
-
-    // Fungsi untuk membuat URI file sementara untuk kamera
-    fun createTempImageFileUri(context: Context): Uri? {
-        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val storageDir: File? = context.getExternalFilesDir("Pictures") // Simpan di external biar mudah diakses
-        return try {
-            val file = File.createTempFile(
-                "JPEG_${timeStamp}_",
-                ".jpg",
-                storageDir
-            )
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.provider", // Sesuaikan dengan authority di AndroidManifest
-                file
-            )
-        } catch (ex: Exception) {
-            Log.e("CreateUri", "Gagal membuat file sementara", ex)
-            null
-        }
+        tempCameraImageUri = null
     }
 
 
@@ -605,18 +610,23 @@ fun AddEditMemberView(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Bagian Pilih Foto ---
+            val defaultImage = if (gender == "Perempuan") {
+                R.drawable.default_wanita
+            } else {
+                R.drawable.default_pria
+            }
+
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 AsyncImage(
-                    model = if (photoPath.isNotEmpty()) File(photoPath) else R.drawable.default_pria,
+                    model = if (photoPath.isNotEmpty()) File(photoPath) else defaultImage,
                     contentDescription = "Foto Profil",
                     modifier = Modifier
                         .size(150.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { showImageSourceDialog = true }, // Klik gambar buka dialog
+                        .clickable { showImageSourceDialog = true },
                     contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.default_pria)
+                    placeholder = painterResource(id = defaultImage)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = { showImageSourceDialog = true }) {
@@ -628,8 +638,7 @@ fun AddEditMemberView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Form Fields ---
-            OutlinedTextField( // Nama
+            OutlinedTextField(
                 value = name,
                 onValueChange = onNameChange,
                 label = { Text("Nama Lengkap *") },
@@ -640,7 +649,7 @@ fun AddEditMemberView(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField( // NIM
+            OutlinedTextField(
                 value = nim,
                 onValueChange = onNimChange,
                 label = { Text("NIM *") },
@@ -650,9 +659,34 @@ fun AddEditMemberView(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    "Jenis Kelamin *",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    RadioButton(
+                        selected = gender == "Laki-laki",
+                        onClick = { onGenderChange("Laki-laki") }
+                    )
+                    Text("Laki-laki", Modifier.padding(end = 16.dp).clickable { onGenderChange("Laki-laki") })
+
+                    RadioButton(
+                        selected = gender == "Perempuan",
+                        onClick = { onGenderChange("Perempuan") }
+                    )
+                    Text("Perempuan", Modifier.clickable { onGenderChange("Perempuan") })
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // --- Dropdown Fakultas ---
             ExposedDropdownMenuBox(
                 expanded = facultyExpanded,
                 onExpandedChange = { facultyExpanded = !facultyExpanded },
@@ -685,19 +719,50 @@ fun AddEditMemberView(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // --- Input Jurusan (Teks Biasa) ---
-            OutlinedTextField(
-                value = major,
-                onValueChange = onMajorChange,
-                label = { Text("Jurusan *") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
+            ExposedDropdownMenuBox(
+                expanded = majorExpanded,
+                onExpandedChange = {
+                    if (faculty.isNotEmpty()) {
+                        majorExpanded = !majorExpanded
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = major.ifEmpty { "Pilih Jurusan *" },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Jurusan *") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = majorExpanded) },
+                    enabled = faculty.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                )
+                ExposedDropdownMenu(
+                    expanded = majorExpanded,
+                    onDismissRequest = { majorExpanded = false }
+                ) {
+                    majorList.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                onMajorChange(selectionOption)
+                                majorExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField( // Kontak
+            OutlinedTextField(
                 value = contact,
                 onValueChange = onContactChange,
                 label = { Text("Nomor Kontak *") },
@@ -709,7 +774,7 @@ fun AddEditMemberView(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField( // Email (Opsional)
+            OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
                 label = { Text("Email (Opsional)") },
@@ -722,11 +787,10 @@ fun AddEditMemberView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Tombol Simpan ---
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = name.isNotEmpty() && nim.isNotEmpty() && faculty.isNotEmpty() && major.isNotEmpty() && contact.isNotEmpty(),
+                enabled = name.isNotEmpty() && nim.isNotEmpty() && gender.isNotEmpty() && faculty.isNotEmpty() && major.isNotEmpty() && contact.isNotEmpty(),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
@@ -737,7 +801,6 @@ fun AddEditMemberView(
         }
     }
 
-    // --- Dialog Pilih Sumber Gambar ---
     if (showImageSourceDialog) {
         AlertDialog(
             onDismissRequest = { showImageSourceDialog = false },
@@ -757,14 +820,23 @@ fun AddEditMemberView(
                         Text("Galeri")
                     }
                     Button(onClick = {
-                        // Buat URI baru setiap kali kamera dibuka
-                        val uri = createTempImageFileUri(context)
-                        if (uri != null) {
-                            tempCameraImageUri = uri // Simpan URI untuk callback kamera
+                        val photoFile: File? = try {
+                            createImageFile(context, "member_photo_cam")
+                        } catch (ex: Exception) {
+                            Log.e("AddEditMemberView", "Gagal membuat file gambar", ex)
+                            null
+                        }
+
+                        photoFile?.let {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                it
+                            )
+                            tempCameraImageUri = uri
                             cameraLauncher.launch(uri)
-                        } else {
+                        } ?: run {
                             Log.e("AddEditMemberView", "Tidak bisa membuat URI untuk kamera")
-                            // Tampilkan pesan error jika perlu
                         }
                         showImageSourceDialog = false
                     }) {
@@ -778,69 +850,5 @@ fun AddEditMemberView(
                 TextButton(onClick = { showImageSourceDialog = false }) { Text("Batal") }
             }
         )
-    }
-}
-
-
-// Fungsi helper untuk menyimpan gambar (mirip di BookScreen, tambahkan prefix nama file)
-fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): String {
-    var inputStream: InputStream? = null
-    var outputStream: FileOutputStream? = null
-    // Gunakan timestamp unik untuk nama file
-    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val fileName = "${prefix}_${timeStamp}.jpg"
-    // Simpan di direktori file internal aplikasi
-    val file = File(context.filesDir, fileName)
-    var savedPath = ""
-
-    try {
-        inputStream = context.contentResolver.openInputStream(uri)
-        outputStream = FileOutputStream(file)
-        inputStream?.copyTo(outputStream)
-        savedPath = file.absolutePath // Dapatkan path absolut file yang disimpan
-        Log.d("ImageSave", "Gambar disimpan di: $savedPath")
-    } catch (e: Exception) {
-        Log.e("ImageSave", "Gagal menyimpan gambar dari URI: $uri", e)
-        // Hapus file jika proses penyimpanan gagal sebagian
-        if (file.exists()) {
-            file.delete()
-        }
-    } finally {
-        // Pastikan stream ditutup
-        try {
-            inputStream?.close()
-        } catch (e: Exception) {
-            Log.e("ImageSave", "Gagal menutup inputStream", e)
-        }
-        try {
-            outputStream?.close()
-        } catch (e: Exception) {
-            Log.e("ImageSave", "Gagal menutup outputStream", e)
-        }
-    }
-    return savedPath // Kembalikan path file yang disimpan atau string kosong jika gagal
-}
-
-
-// Fungsi untuk membuat URI file sementara (diperlukan untuk kamera)
-fun createImageFileUri(context: Context): Uri? {
-    return try {
-        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        // Simpan di cache directory internal
-        val storageDir: File = context.cacheDir
-        val file = File.createTempFile(
-            "JPEG_${timeStamp}_", /* prefix */
-            ".jpg", /* suffix */
-            storageDir /* directory */
-        )
-        // Dapatkan URI menggunakan FileProvider
-        FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.provider", // Authority harus sama dengan di AndroidManifest dan file_paths.xml
-            file
-        )
-    } catch (ex: Exception) {
-        Log.e("CreateImageFile", "Error creating image file URI", ex)
-        null
     }
 }
