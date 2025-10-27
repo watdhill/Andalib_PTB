@@ -1,8 +1,8 @@
-package com.example.andalib.screen.member
+package com.example.andalib.screen.member // Pastikan package benar
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes // Ganti jika ikon tidak ada
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,20 +24,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import com.example.andalib.R // Pastikan import R ada
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
-import com.example.andalib.createImageFile
-import com.example.andalib.saveImageToInternalStorage
-import com.example.andalib.ui.theme.AndalibDarkBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +47,14 @@ fun MembersScreen() {
     val context = LocalContext.current
     val database = remember { MemberDatabase(context) }
 
-    var members by remember { mutableStateOf(database.getAllMembers()) }
+    var members by remember { mutableStateOf(emptyList<Member>()) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshTrigger) {
+        Log.d("MembersScreen", "Memuat ulang data anggota...")
+        members = database.getAllMembers()
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var currentView by remember { mutableStateOf("list") }
     var selectedMember by remember { mutableStateOf<Member?>(null) }
@@ -50,10 +62,11 @@ fun MembersScreen() {
     var notificationMessage by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // State untuk form
     var formName by remember { mutableStateOf("") }
     var formNim by remember { mutableStateOf("") }
-    var formFaculty by remember { mutableStateOf("") }
-    var formMajor by remember { mutableStateOf("") }
+    var formFaculty by remember { mutableStateOf("") } // State Fakultas
+    var formMajor by remember { mutableStateOf("") } // State Jurusan
     var formContact by remember { mutableStateOf("") }
     var formEmail by remember { mutableStateOf("") }
     var formPhotoPath by remember { mutableStateOf("") }
@@ -61,11 +74,11 @@ fun MembersScreen() {
     val filteredMembers = if (searchQuery.isEmpty()) {
         members
     } else {
-        database.searchMembers(searchQuery)
+        database.searchMembers(searchQuery) // Gunakan search dari DB
     }
 
-    fun refreshMembers() {
-        members = database.getAllMembers()
+    fun refreshMembersView() {
+        refreshTrigger++
     }
 
     fun showNotif(message: String) {
@@ -76,7 +89,8 @@ fun MembersScreen() {
     fun resetForm() {
         formName = ""
         formNim = ""
-        formMajor = ""
+        formFaculty = "" // Reset Fakultas
+        formMajor = "" // Reset Jurusan
         formContact = ""
         formEmail = ""
         formPhotoPath = ""
@@ -91,13 +105,13 @@ fun MembersScreen() {
                             "add" -> "Tambah Anggota"
                             "edit" -> "Edit Anggota"
                             "detail" -> "Detail Anggota"
-                            else -> "Manajemen Anggota"
+                            else -> "Daftar Anggota"
                         },
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AndalibDarkBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 ),
                 actions = {
@@ -106,11 +120,7 @@ fun MembersScreen() {
                             resetForm()
                             currentView = "add"
                         }) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Tambah Anggota",
-                                tint = Color.White
-                            )
+                            Icon(Icons.Default.Add, "Tambah Anggota", tint = Color.White)
                         }
                     }
                 },
@@ -121,17 +131,14 @@ fun MembersScreen() {
                             selectedMember = null
                             resetForm()
                         }) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = "Kembali",
-                                tint = Color.White
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White)
                         }
                     }
                 }
             )
         },
         snackbarHost = {
+            // ... (Snackbar code remains the same) ...
             if (showNotification) {
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
@@ -139,19 +146,8 @@ fun MembersScreen() {
                         TextButton(onClick = { showNotification = false }) {
                             Text("OK")
                         }
-                    },
-                    containerColor = Color(0xFF4CAF50)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(notificationMessage, color = Color.White)
                     }
-                }
+                ) { Text(notificationMessage) }
                 LaunchedEffect(Unit) {
                     kotlinx.coroutines.delay(3000)
                     showNotification = false
@@ -166,6 +162,14 @@ fun MembersScreen() {
                 onSearchChange = { searchQuery = it },
                 onMemberClick = { member ->
                     selectedMember = member
+                    // Isi form untuk persiapan detail/edit
+                    formName = member.name
+                    formNim = member.nim
+                    formFaculty = member.faculty
+                    formMajor = member.major
+                    formContact = member.contact
+                    formEmail = member.email
+                    formPhotoPath = member.photoPath
                     currentView = "detail"
                 },
                 modifier = Modifier.padding(padding)
@@ -174,73 +178,57 @@ fun MembersScreen() {
             "detail" -> selectedMember?.let { member ->
                 MemberDetailView(
                     member = member,
-                    onEdit = {
-                        formName = member.name
-                        formNim = member.nim
-                        formMajor = member.major
-                        formContact = member.contact
-                        formEmail = member.email
-                        formPhotoPath = member.photoPath
-                        currentView = "edit"
-                    },
-                    onDelete = {
-                        showDeleteDialog = true
-                    },
+                    onEdit = { currentView = "edit" }, // Langsung ke edit karena form sudah diisi
+                    onDelete = { showDeleteDialog = true },
                     modifier = Modifier.padding(padding)
                 )
             }
 
             "add", "edit" -> AddEditMemberView(
                 isEdit = currentView == "edit",
+                // Berikan state form
                 name = formName,
                 nim = formNim,
-                major = formMajor,
+                faculty = formFaculty, // <-- Berikan state Fakultas
+                major = formMajor,     // <-- Berikan state Jurusan
                 contact = formContact,
                 email = formEmail,
                 photoPath = formPhotoPath,
+                // Berikan lambda untuk update state form
                 onNameChange = { formName = it },
                 onNimChange = { formNim = it },
-                onMajorChange = { formMajor = it },
+                onFacultyChange = { formFaculty = it }, // <-- Berikan lambda Fakultas
+                onMajorChange = { formMajor = it },     // <-- Berikan lambda Jurusan
                 onContactChange = { formContact = it },
                 onEmailChange = { formEmail = it },
                 onPhotoPathChange = { formPhotoPath = it },
                 onSave = {
-                    if (formName.isNotEmpty() && formNim.isNotEmpty() &&
-                        formMajor.isNotEmpty() && formContact.isNotEmpty()) {
+                    // Validasi
+                    if (formName.isNotEmpty() && formNim.isNotEmpty() && formFaculty.isNotEmpty() && formMajor.isNotEmpty() && formContact.isNotEmpty()) {
+                        val memberData = Member(
+                            id = selectedMember?.id ?: 0,
+                            name = formName,
+                            nim = formNim,
+                            faculty = formFaculty, // <-- Sertakan Fakultas
+                            major = formMajor,     // <-- Sertakan Jurusan
+                            contact = formContact,
+                            email = formEmail,
+                            photoPath = formPhotoPath
+                            // registrationDate akan diisi otomatis oleh DB jika menggunakan DEFAULT CURRENT_TIMESTAMP
+                        )
 
                         if (currentView == "add") {
-                            val newMember = Member(
-                                name = formName,
-                                nim = formNim,
-                                major = formMajor,
-                                faculty = formFaculty,
-                                contact = formContact,
-                                email = formEmail,
-                                photoPath = formPhotoPath
-                            )
-                            val result = database.insertMember(newMember)
-                            if (result > 0) {
-                                showNotif("✓ Anggota berhasil ditambahkan!")
-                            } else {
-                                showNotif("✗ Gagal menambahkan anggota")
-                            }
+                            database.insertMember(memberData)
+                            showNotif("✓ Anggota baru berhasil ditambahkan!")
                         } else {
-                            selectedMember?.let { member ->
-                                val updatedMember = member.copy(
-                                    name = formName,
-                                    nim = formNim,
-                                    major = formMajor,
-                                    contact = formContact,
-                                    email = formEmail,
-                                    photoPath = formPhotoPath
-                                )
-                                database.updateMember(updatedMember)
-                                showNotif("✓ Data anggota berhasil diperbarui!")
-                            }
+                            database.updateMember(memberData)
+                            showNotif("✓ Data anggota berhasil diperbarui!")
                         }
-                        refreshMembers()
+                        refreshMembersView()
                         currentView = "list"
                         resetForm()
+                    } else {
+                        showNotif("⚠️ Harap isi semua field yang wajib (*)")
                     }
                 },
                 context = context,
@@ -249,35 +237,33 @@ fun MembersScreen() {
         }
     }
 
+    // Dialog Konfirmasi Hapus
     if (showDeleteDialog) {
+        // ... (AlertDialog code remains the same) ...
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            icon = {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
-            },
             title = { Text("Hapus Anggota") },
-            text = { Text("Apakah Anda yakin ingin menghapus anggota ini?") },
+            text = { Text("Yakin ingin menghapus data ${selectedMember?.name}?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedMember?.let { member ->
-                            database.deleteMember(member.id)
-                            refreshMembers()
-                            showNotif("✓ Anggota berhasil dihapus!")
-                            currentView = "list"
-                            selectedMember = null
+                TextButton(onClick = {
+                    selectedMember?.let { member ->
+                        // Hapus file foto jika ada sebelum hapus dari DB
+                        if (member.photoPath.isNotEmpty()) {
+                            try {
+                                File(member.photoPath).delete()
+                            } catch (e: Exception) {
+                                Log.e("MembersScreen", "Gagal hapus file foto: ${member.photoPath}", e)
+                            }
                         }
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Hapus")
+                        database.deleteMember(member.id)
+                        refreshMembersView()
+                        showNotif("✓ Anggota berhasil dihapus!")
+                        currentView = "list"
+                        selectedMember = null
+                    }
+                    showDeleteDialog = false
+                }) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -289,6 +275,7 @@ fun MembersScreen() {
     }
 }
 
+// --- Composable untuk Tampilan Daftar Anggota ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberListView(
@@ -299,135 +286,104 @@ fun MemberListView(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
+        // Search Bar (tetap sama)
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            placeholder = { Text("Cari nama, NIM, atau jurusan...") },
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Cari Nama atau NIM...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp)
         )
 
-        if (members.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.People,
-                        contentDescription = null,
-                        modifier = Modifier.size(100.dp),
-                        tint = Color.Gray.copy(alpha = 0.3f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+        // Daftar Anggota
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            if (members.isEmpty() && searchQuery.isEmpty()) { // Tampil jika list kosong & tidak sedang mencari
+                item {
                     Text(
-                        "Belum ada anggota",
+                        "Belum ada data anggota. Tekan tombol '+' untuk menambah.",
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
                         color = Color.Gray,
-                        fontSize = 16.sp
+                        textAlign = TextAlign.Center
                     )
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                items(members) { member ->
+            } else if (members.isEmpty() && searchQuery.isNotEmpty()) { // Tampil jika hasil cari kosong
+                item {
+                    Text(
+                        "Anggota '$searchQuery' tidak ditemukan.",
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                items(members, key = { it.id }) { member ->
                     MemberItem(member = member, onClick = { onMemberClick(member) })
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
     }
 }
 
+// --- Composable untuk Satu Item Anggota di Daftar ---
 @Composable
 fun MemberItem(member: Member, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Photo
-            Box(
+            // Foto Profil Bulat
+            AsyncImage(
+                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else R.drawable.default_pria, // Tampilkan default jika kosong
+                contentDescription = "Foto ${member.name}",
                 modifier = Modifier
-                    .size(70.dp)
+                    .size(50.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                if (member.photoPath.isNotEmpty() && File(member.photoPath).exists()) {
-                    val bitmap = remember(member.photoPath) {
-                        BitmapFactory.decodeFile(member.photoPath)
-                    }
-                    bitmap?.let {
-                        Image(
-                            bitmap = it.asImageBitmap(),
-                            contentDescription = "Photo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                } else {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(35.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = member.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = member.nim,
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = member.major,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.Gray
+                    .background(Color.LightGray), // Background jika gambar gagal load
+                contentScale = ContentScale.Crop,
+                onError = { Log.e("MemberItem", "Gagal load gambar: ${member.photoPath}", it.result.throwable) },
+                placeholder = painterResource(id = R.drawable.default_pria) // Placeholder default
             )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Info Anggota
+            Column(modifier = Modifier.weight(1f)) {
+                Text(member.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(member.nim, fontSize = 14.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text( // Tampilkan Fakultas & Jurusan
+                    text = "${member.faculty} / ${member.major}",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1
+                )
+            }
+            // Icon panah kanan (opsional)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
         }
     }
 }
 
+
+// --- Composable untuk Tampilan Detail Anggota ---
 @Composable
 fun MemberDetailView(
     member: Member,
@@ -442,66 +398,49 @@ fun MemberDetailView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            // Photo
-            Box(
+            // Foto Profil Besar
+            AsyncImage(
+                model = if (member.photoPath.isNotEmpty()) File(member.photoPath) else R.drawable.default_pria,
+                contentDescription = "Foto ${member.name}",
                 modifier = Modifier
                     .size(150.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                if (member.photoPath.isNotEmpty() && File(member.photoPath).exists()) {
-                    val bitmap = remember(member.photoPath) {
-                        BitmapFactory.decodeFile(member.photoPath)
-                    }
-                    bitmap?.let {
-                        Image(
-                            bitmap = it.asImageBitmap(),
-                            contentDescription = "Photo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                } else {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(70.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
+                    .background(Color.LightGray),
+                contentScale = ContentScale.Crop,
+                onError = { Log.e("MemberDetail", "Gagal load gambar: ${member.photoPath}", it.result.throwable) },
+                placeholder = painterResource(id = R.drawable.default_pria)
+            )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Info Cards
-            InfoCard(icon = Icons.Default.Person, label = "Nama", value = member.name)
-            InfoCard(icon = Icons.Default.Badge, label = "NIM", value = member.nim)
-            InfoCard(icon = Icons.Default.School, label = "Jurusan", value = member.major)
-            InfoCard(icon = Icons.Default.Phone, label = "Kontak", value = member.contact)
-            if (member.email.isNotEmpty()) {
-                InfoCard(icon = Icons.Default.Email, label = "Email", value = member.email)
-            }
-            InfoCard(
-                icon = Icons.Default.CalendarToday,
-                label = "Tanggal Daftar",
-                value = member.registrationDate
+            // Nama Besar
+            Text(member.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            // NIM di bawah nama
+            Text("NIM: ${member.nim}", fontSize = 16.sp, color = Color.Gray)
+            // Tanggal Registrasi
+            Text(
+                text = "Terdaftar: ${member.registrationDate}", // Tampilkan tanggal
+                fontSize = 12.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = onEdit,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
+            // Detail Info dalam Card
+            InfoCard( // Gunakan Composable InfoCard
+                faculty = member.faculty,
+                major = member.major,
+                contact = member.contact,
+                email = member.email
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Tombol Edit & Hapus
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onEdit, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Edit, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Edit")
@@ -509,73 +448,73 @@ fun MemberDetailView(
                 Button(
                     onClick = onDelete,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Hapus")
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp)) // Jarak bawah
         }
     }
 }
 
+// Card Info Detail (dipisah agar rapi)
 @Composable
-fun InfoCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
+fun InfoCard(faculty: String, major: String, contact: String, email: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            DetailRowMember(icon = Icons.Default.School, label = "Fakultas", value = faculty)
+            DetailRowMember(icon = Icons.AutoMirrored.Filled.Notes, label = "Jurusan", value = major) // Ikon notes
+            DetailRowMember(icon = Icons.Default.Phone, label = "Kontak", value = contact)
+            DetailRowMember(icon = Icons.Default.Email, label = "Email", value = email) // Tambahkan Email
+        }
+    }
+}
+
+// Baris Detail dengan Ikon (dipisah agar rapi)
+@Composable
+fun DetailRowMember(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    if (value.isNotEmpty()) { // Hanya tampilkan jika ada value
+        Column(modifier = Modifier.padding(bottom = 12.dp)) { // Tambah padding bawah
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = label,
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = value,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Gray,
+                    fontSize = 12.sp
                 )
             }
+            Text( // Value di bawah label
+                text = value,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(start = 36.dp) // Indentasi value
+            )
         }
+        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp) // Pemisah
     }
 }
 
+
+// --- Composable untuk Form Tambah/Edit Anggota (PERBAIKAN FAKULTAS & JURUSAN) ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditMemberView(
     isEdit: Boolean,
     name: String,
     nim: String,
-    major: String,
+    faculty: String, // State untuk Fakultas
+    major: String,   // State untuk Jurusan
     contact: String,
     email: String,
     photoPath: String,
     onNameChange: (String) -> Unit,
     onNimChange: (String) -> Unit,
-    onMajorChange: (String) -> Unit,
+    onFacultyChange: (String) -> Unit, // Lambda untuk Fakultas
+    onMajorChange: (String) -> Unit,   // Lambda untuk Jurusan
     onContactChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPhotoPathChange: (String) -> Unit,
@@ -583,39 +522,74 @@ fun AddEditMemberView(
     context: Context,
     modifier: Modifier = Modifier
 ) {
-    var showImageSourceDialog by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    val majors = listOf(
-        "Teknik Informatika",
-        "Sistem Informasi",
-        "Teknik Elektro",
-        "Teknik Mesin",
-        "Manajemen",
-        "Akuntansi"
-    )
+    var facultyExpanded by remember { mutableStateOf(false) } // State dropdown fakultas
+    // Daftar Fakultas
+    val facultyList = remember { // Gunakan remember agar list tidak dibuat ulang
+        listOf(
+            "Fakultas Kedokteran", "Fakultas Kedokteran Gigi", "Fakultas Farmasi",
+            "Fakultas Pertanian", "Fakultas Peternakan", "Fakultas Ekonomi dan Bisnis",
+            "Fakultas MIPA", "Fakultas ISIP", "Fakultas Teknik",
+            "Fakultas Ilmu Budaya", "Fakultas Teknologi Informasi", "Fakultas Keperawatan",
+            "Fakultas Kesehatan Masyarakat", "Fakultas Teknologi Pertanian", "Fakultas Hukum"
+        )
+    }
 
-    // Gallery Launcher
+    // State dan launcher untuk image picker
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var tempCameraImageUri by remember { mutableStateOf<Uri?>(null) } // Simpan URI kamera sementara
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            val savedPath = saveImageToInternalStorage(context, it, "member")
-            onPhotoPathChange(savedPath)
-        }
-    }
-
-    // Camera Launcher
-    val cameraImageUri = remember { mutableStateOf<Uri?>(null) }
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success) {
-            cameraImageUri.value?.let { uri ->
-                val savedPath = saveImageToInternalStorage(context, uri, "member")
+            val savedPath = saveImageToInternalStorage(context, it, "member_photo")
+            if (savedPath.isNotEmpty()) {
                 onPhotoPathChange(savedPath)
+            } else {
+                Log.e("AddEditMemberView", "Gagal menyimpan gambar dari galeri")
+                // Tampilkan pesan error jika perlu
             }
         }
     }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            tempCameraImageUri?.let { uri ->
+                val savedPath = saveImageToInternalStorage(context, uri, "member_photo_cam")
+                if (savedPath.isNotEmpty()) {
+                    onPhotoPathChange(savedPath)
+                } else {
+                    Log.e("AddEditMemberView", "Gagal menyimpan gambar dari kamera")
+                    // Tampilkan pesan error jika perlu
+                }
+            }
+        }
+        tempCameraImageUri = null // Reset URI sementara
+    }
+
+    // Fungsi untuk membuat URI file sementara untuk kamera
+    fun createTempImageFileUri(context: Context): Uri? {
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir: File? = context.getExternalFilesDir("Pictures") // Simpan di external biar mudah diakses
+        return try {
+            val file = File.createTempFile(
+                "JPEG_${timeStamp}_",
+                ".jpg",
+                storageDir
+            )
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider", // Sesuaikan dengan authority di AndroidManifest
+                file
+            )
+        } catch (ex: Exception) {
+            Log.e("CreateUri", "Gagal membuat file sementara", ex)
+            null
+        }
+    }
+
 
     LazyColumn(
         modifier = modifier
@@ -631,36 +605,19 @@ fun AddEditMemberView(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Photo Section
+            // --- Bagian Pilih Foto ---
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
+                AsyncImage(
+                    model = if (photoPath.isNotEmpty()) File(photoPath) else R.drawable.default_pria,
+                    contentDescription = "Foto Profil",
                     modifier = Modifier
                         .size(150.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (photoPath.isNotEmpty() && File(photoPath).exists()) {
-                        val bitmap = remember(photoPath) {
-                            BitmapFactory.decodeFile(photoPath)
-                        }
-                        bitmap?.let {
-                            Image(
-                                bitmap = it.asImageBitmap(),
-                                contentDescription = "Photo Preview",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    } else {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(70.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { showImageSourceDialog = true }, // Klik gambar buka dialog
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.default_pria)
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = { showImageSourceDialog = true }) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null)
@@ -671,55 +628,56 @@ fun AddEditMemberView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Form Fields
-            OutlinedTextField(
+            // --- Form Fields ---
+            OutlinedTextField( // Nama
                 value = name,
                 onValueChange = onNameChange,
                 label = { Text("Nama Lengkap *") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            OutlinedTextField( // NIM
                 value = nim,
                 onValueChange = onNimChange,
                 label = { Text("NIM *") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Major Dropdown
+            // --- Dropdown Fakultas ---
             ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
+                expanded = facultyExpanded,
+                onExpandedChange = { facultyExpanded = !facultyExpanded },
+                modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
-                    value = major,
+                    value = faculty.ifEmpty { "Pilih Fakultas *" },
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Jurusan *") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    },
+                    label = { Text("Fakultas *") },
                     leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = facultyExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    expanded = facultyExpanded,
+                    onDismissRequest = { facultyExpanded = false }
                 ) {
-                    majors.forEach { majorItem ->
+                    facultyList.forEach { selectionOption ->
                         DropdownMenuItem(
-                            text = { Text(majorItem) },
+                            text = { Text(selectionOption) },
                             onClick = {
-                                onMajorChange(majorItem)
-                                expanded = false
+                                onFacultyChange(selectionOption)
+                                facultyExpanded = false
                             }
                         )
                     }
@@ -727,84 +685,162 @@ fun AddEditMemberView(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
+            // --- Input Jurusan (Teks Biasa) ---
             OutlinedTextField(
+                value = major,
+                onValueChange = onMajorChange,
+                label = { Text("Jurusan *") },
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField( // Kontak
                 value = contact,
                 onValueChange = onContactChange,
                 label = { Text("Nomor Kontak *") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            OutlinedTextField( // Email (Opsional)
                 value = email,
                 onValueChange = onEmailChange,
                 label = { Text("Email (Opsional)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                shape = RoundedCornerShape(12.dp)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // --- Tombol Simpan ---
             Button(
                 onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotEmpty() && nim.isNotEmpty() &&
-                        major.isNotEmpty() && contact.isNotEmpty()
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = name.isNotEmpty() && nim.isNotEmpty() && faculty.isNotEmpty() && major.isNotEmpty() && contact.isNotEmpty(),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (isEdit) "Simpan Perubahan" else "Tambah Anggota")
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
-    // Image Source Dialog
+    // --- Dialog Pilih Sumber Gambar ---
     if (showImageSourceDialog) {
         AlertDialog(
             onDismissRequest = { showImageSourceDialog = false },
-            title = { Text("Pilih Sumber Foto") },
-            text = {
-                Column {
-                    TextButton(
-                        onClick = {
-                            showImageSourceDialog = false
-                            galleryLauncher.launch("image/*")
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+            title = { Text("Pilih Sumber Gambar") },
+            text = { Text("Ambil gambar dari galeri atau kamera?") },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(onClick = {
+                        galleryLauncher.launch("image/*")
+                        showImageSourceDialog = false
+                    }) {
                         Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text("Galeri")
                     }
-                    TextButton(
-                        onClick = {
-                            showImageSourceDialog = false
-                            val photoFile = createImageFile(context, "member")
-                            cameraImageUri.value = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.provider",
-                                photoFile
-                            )
-                            cameraLauncher.launch(cameraImageUri.value!!)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Button(onClick = {
+                        // Buat URI baru setiap kali kamera dibuka
+                        val uri = createTempImageFileUri(context)
+                        if (uri != null) {
+                            tempCameraImageUri = uri // Simpan URI untuk callback kamera
+                            cameraLauncher.launch(uri)
+                        } else {
+                            Log.e("AddEditMemberView", "Tidak bisa membuat URI untuk kamera")
+                            // Tampilkan pesan error jika perlu
+                        }
+                        showImageSourceDialog = false
+                    }) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text("Kamera")
                     }
                 }
             },
-            confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showImageSourceDialog = false }) {
-                    Text("Batal")
-                }
+                TextButton(onClick = { showImageSourceDialog = false }) { Text("Batal") }
             }
         )
     }
 }
 
+
+// Fungsi helper untuk menyimpan gambar (mirip di BookScreen, tambahkan prefix nama file)
+fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): String {
+    var inputStream: InputStream? = null
+    var outputStream: FileOutputStream? = null
+    // Gunakan timestamp unik untuk nama file
+    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val fileName = "${prefix}_${timeStamp}.jpg"
+    // Simpan di direktori file internal aplikasi
+    val file = File(context.filesDir, fileName)
+    var savedPath = ""
+
+    try {
+        inputStream = context.contentResolver.openInputStream(uri)
+        outputStream = FileOutputStream(file)
+        inputStream?.copyTo(outputStream)
+        savedPath = file.absolutePath // Dapatkan path absolut file yang disimpan
+        Log.d("ImageSave", "Gambar disimpan di: $savedPath")
+    } catch (e: Exception) {
+        Log.e("ImageSave", "Gagal menyimpan gambar dari URI: $uri", e)
+        // Hapus file jika proses penyimpanan gagal sebagian
+        if (file.exists()) {
+            file.delete()
+        }
+    } finally {
+        // Pastikan stream ditutup
+        try {
+            inputStream?.close()
+        } catch (e: Exception) {
+            Log.e("ImageSave", "Gagal menutup inputStream", e)
+        }
+        try {
+            outputStream?.close()
+        } catch (e: Exception) {
+            Log.e("ImageSave", "Gagal menutup outputStream", e)
+        }
+    }
+    return savedPath // Kembalikan path file yang disimpan atau string kosong jika gagal
+}
+
+
+// Fungsi untuk membuat URI file sementara (diperlukan untuk kamera)
+fun createImageFileUri(context: Context): Uri? {
+    return try {
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        // Simpan di cache directory internal
+        val storageDir: File = context.cacheDir
+        val file = File.createTempFile(
+            "JPEG_${timeStamp}_", /* prefix */
+            ".jpg", /* suffix */
+            storageDir /* directory */
+        )
+        // Dapatkan URI menggunakan FileProvider
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider", // Authority harus sama dengan di AndroidManifest dan file_paths.xml
+            file
+        )
+    } catch (ex: Exception) {
+        Log.e("CreateImageFile", "Error creating image file URI", ex)
+        null
+    }
+}
