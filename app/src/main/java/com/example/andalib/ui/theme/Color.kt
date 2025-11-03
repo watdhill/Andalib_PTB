@@ -15,3 +15,4 @@ val AndalibDarkBlue = Color(0xFF052659)
 val AndalibLightBlue = Color(0xFF7DA0CA)
 val AndalibGray = Color(0xFFB0B0B0) // Warna tambahan untuk placeholder/border
 val AndalibBackground = Color(0xFFF8F9FA) // Warna tambahan untuk background ilustrasi
+
