@@ -17,12 +17,6 @@
       </configuration>
     </facet>
   </component>
-  <component name="ModuleClassLoaderOverlays">
-    <paths>
-      <option value="C:\Users\ikhwa\AppData\Local\Temp\overlay15976085396635892988" />
-      <option value="C:\Users\ikhwa\AppData\Local\Temp\overlay8405099271039842563" />
-    </paths>
-  </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_11">
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../../app">
