@@ -42,6 +42,8 @@ fun HomeScreen() {
                         label = {
                             Text(
                                 text = item.title,
+                                fontSize = 8.sp,
+                                maxLines = 1,
                                 style = MaterialTheme.typography.labelSmall
                             )
                         },

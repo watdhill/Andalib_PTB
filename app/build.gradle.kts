@@ -70,4 +70,20 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0") // Untuk debugging & melihat token
+
+    // Kotlin Coroutines (Digunakan oleh Retrofit dan DataStore)
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // DataStore (Penyimpanan Token)
+    implementation ("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Compose Navigation & ViewModel
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
+    // UI (untuk dialog loading)
+    implementation ("androidx.compose.material3:material3")
 }
