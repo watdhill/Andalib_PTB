@@ -37,14 +37,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-// =========================================================
-// 1. TEMA, WARNA, DAN DATA MODELS
-// =========================================================
 
 val BlueDarkest = Color(0xFF021024) // Hampir hitam
 val BlueDark = Color(0xFF052659)    // Biru Tua, untuk Top Bar/Bottom Nav Background
 val BlueMedium = Color(0xFF5483B3)  // Biru Sedang, untuk Aksen Utama
-val BlueLight = Color(0xFF7DA0CA)   // Biru Muda, untuk Outline/Garis
 val BlueSkyLight = Color(0xFFC1E8FF) // Biru Langit Sangat Muda, untuk Background Layar
 val White = Color(0xFFFFFFFF)       // Putih, untuk Card Background & Teks OnPrimary
 val RedError = Color(0xFFE53935)
@@ -269,19 +265,37 @@ fun HistoryItem(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(
+
+                // 1. Tombol EDIT (Warna Primary/Biru Tua)
+                Button(
                     onClick = { onEdit(item.id) },
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary, // Warna Biru Tua
+                        contentColor = MaterialTheme.colorScheme.onPrimary  // Warna Putih
+                    ),
+                    modifier = Modifier.sizeIn(minWidth = 70.dp, minHeight = 40.dp)
                 ) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit", color = MaterialTheme.colorScheme.primary)
+                    Text("Edit")
                 }
-                IconButton(
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 2. Tombol HAPUS (Warna Error/Merah)
+                Button(
                     onClick = { onDelete(item.id) },
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error, // Warna Merah
+                        contentColor = MaterialTheme.colorScheme.onError // Warna Putih
+                    ),
+                    modifier = Modifier.sizeIn(minWidth = 70.dp, minHeight = 40.dp)
                 ) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.Delete, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hapus")
                 }
             }
         }

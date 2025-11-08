@@ -1,5 +1,6 @@
 package com.example.andalib.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,35 +25,56 @@ import com.example.andalib.components.AndalibPasswordField
 import com.example.andalib.components.AndalibButton
 import com.example.andalib.components.ClickableAuthText
 import com.example.andalib.ui.theme.*
-import kotlinx.coroutines.delay
-import androidx.compose.material.icons.filled.Warning
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.andalib.screen.login.LoginViewModel
+import com.example.andalib.screen.login.LoginViewModelFactory
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    // MODIFIKASI: Tambahkan errorCallback handler ke parameter
-    onLoginClicked: (String, String, (String) -> Unit) -> Unit = { _, _, _ -> },
+    // PERUBAHAN: Hanya callback sukses (dipanggil ViewModel)
+    onLoginSuccess: () -> Unit = {},
     onSignUpClicked: () -> Unit = {},
     onBackClicked: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    // Dapatkan ViewModel dengan Factory
+    val viewModel: LoginViewModel = viewModel(
+        factory = LoginViewModelFactory(context.applicationContext)
+    )
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    // STATE UNTUK NOTIFIKASI ERROR
-    var showNotification by remember { mutableStateOf(false) }
-    var notificationMessage by remember { mutableStateOf("") }
+    val loginState by viewModel.loginState.collectAsState()
+    val isLoading = loginState is LoginViewModel.LoginUiState.Loading
 
-    // Callback untuk menampilkan Snackbar saat login gagal
-    val failureCallback: (String) -> Unit = { message ->
-        notificationMessage = message
-        showNotification = true
+    // Hapus showNotification dan notificationMessage yang lama
+
+    // Efek untuk Navigasi dan Menampilkan Error API
+    LaunchedEffect(key1 = loginState) {
+        when (loginState) {
+            is LoginViewModel.LoginUiState.Success -> {
+                onLoginSuccess()
+                email = ""
+                password = ""
+            }
+            is LoginViewModel.LoginUiState.Error -> {
+                val message = (loginState as LoginViewModel.LoginUiState.Error).message
+                // Tampilkan error menggunakan Toast
+                Toast.makeText(context, "Gagal Login: $message", Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+
+        }
     }
 
-    // Handler saat tombol diklik
+    // Handler saat tombol diklik: Panggil fungsi ViewModel
     val handleLogin = {
-        onLoginClicked(email, password, failureCallback)
+        viewModel.login(email, password)
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,34 +104,7 @@ fun LoginScreen(
                 )
             )
         },
-        // MENAMBAHKAN SNACKBAR HOST
-        snackbarHost = {
-            if (showNotification) {
-                Snackbar(
-                    modifier = Modifier.padding(16.dp),
-                    action = {
-                        TextButton(onClick = { showNotification = false }) {
-                            Text("OK", color = AndalibWhite)
-                        }
-                    },
-                    containerColor = MaterialTheme.colorScheme.error // Gunakan warna error (merah)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = AndalibWhite
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(notificationMessage, color = AndalibWhite)
-                    }
-                }
-                LaunchedEffect(Unit) {
-                    delay(3000)
-                    showNotification = false
-                }
-            }
-        },
+
         containerColor = AndalibWhite
     ) { paddingValues ->
         Column(

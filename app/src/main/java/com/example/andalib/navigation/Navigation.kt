@@ -19,13 +19,6 @@ sealed class Screen(val route: String) {
     object Main : Screen("main") // Main screen dengan bottom navigation
 }
 
-// Kredensial Admin
-private const val ADMIN_EMAIL = "admin@andalib.com"
-private const val ADMIN_PASS = "admin123"
-
-/**
- * Navigation graph untuk Andalib app
- */
 @Composable
 fun AndalibNavigation(navController: NavHostController) {
     NavHost(
@@ -46,17 +39,10 @@ fun AndalibNavigation(navController: NavHostController) {
         // Login Screen
         composable(route = Screen.Login.route) {
             LoginScreen(
-                // PERUBAHAN: onLoginClicked sekarang menerima callback kegagalan
-                onLoginClicked = { email, password, onFailure ->
-                    // Logika pengecekan
-                    if (email == ADMIN_EMAIL && password == ADMIN_PASS) {
-                        // Login berhasil - navigasi ke MainScreen
-                        navController.navigate(Screen.Main.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    } else {
-                        // Login gagal - panggil callback untuk menampilkan Snackbar
-                        onFailure("Login Gagal: Email atau Password salah")
+                // PERUBAHAN: Hanya butuh onLoginSuccess yang dipicu oleh ViewModel
+                onLoginSuccess = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
                 onSignUpClicked = {
@@ -71,9 +57,12 @@ fun AndalibNavigation(navController: NavHostController) {
         // Sign Up Screen
         composable(route = Screen.SignUp.route) {
             SignUpScreen(
-                onSignUpClicked = {
-                    // Setelah signup berhasil, langsung ke MainScreen
-                    navController.navigate(Screen.Main.route) {
+                // PERBAIKAN: Ganti 'onSignUpSuccess' menjadi 'onSignUpComplete'
+                // dan arahkan navigasi ke LoginScreen
+                onSignUpComplete = {
+                    // Setelah signup berhasil, kembali ke LoginScreen.
+                    // Gunakan popUpTo untuk membersihkan tumpukan Sign Up.
+                    navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.SignUp.route) { inclusive = true }
                     }
                 },
@@ -92,5 +81,3 @@ fun AndalibNavigation(navController: NavHostController) {
         }
     }
 }
-
-

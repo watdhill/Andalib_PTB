@@ -1,46 +1,96 @@
 package com.example.andalib.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andalib.components.AndalibTextField
+import com.example.andalib.components.AndalibPasswordField
 import com.example.andalib.components.AndalibButton
 import com.example.andalib.components.ClickableAuthText
+import com.example.andalib.screen.signup.SignUpViewModel
+import com.example.andalib.screen.signup.SignUpViewModelFactory
 import com.example.andalib.ui.theme.*
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
-    onSignUpClicked: () -> Unit = {},
+    // HAPUS onSignUpSuccess karena tidak digunakan, hanya pakai onSignUpComplete
+    onSignUpComplete: () -> Unit = {},
     onLoginClicked: () -> Unit = {},
     onBackClicked: () -> Unit = {}
 ) {
-    var nama by remember { mutableStateOf("") }
-    var nip by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    // --- PERBAIKAN VIEWMODEL ---
+    // Tambahkan factory ke pemanggilan viewModel
+    val viewModel: SignUpViewModel = viewModel(
+        factory = SignUpViewModelFactory(context.applicationContext)
+    )
+
+    // STATE Input
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-    var selectedRole by remember { mutableStateOf("") }
-    var agreedToTerms by remember { mutableStateOf(false) }
+
+    // STATE ViewModel
+    val signUpState by viewModel.signUpState.collectAsState()
+    val isLoading = signUpState is SignUpViewModel.SignUpUiState.Loading
+
+    // 2. Efek untuk Navigasi dan Menampilkan Error API
+    LaunchedEffect(key1 = signUpState) {
+        when (signUpState) {
+            is SignUpViewModel.SignUpUiState.Success -> {
+                val message = (signUpState as SignUpViewModel.SignUpUiState.Success).message
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+
+                // --- PERBAIKAN: GANTI BARIS KOMENTAR YANG SALAH KETIK ---
+                // Bersihkan field input sebelum navigasi
+                name = ""
+                email = ""
+                password = ""
+
+                // 3. NAVIGASI
+                onSignUpComplete()
+            }
+            is SignUpViewModel.SignUpUiState.Error -> {
+                val message = (signUpState as SignUpViewModel.SignUpUiState.Error).message
+                Toast.makeText(context, "Gagal Registrasi: $message", Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
+
+    // Handler saat tombol diklik: Panggil fungsi ViewModel
+    val handleSignUp = {
+        viewModel.signup(name, email, password)
+    }
 
     Scaffold(
         topBar = {
@@ -53,7 +103,7 @@ fun SignUpScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClicked) {
+                    IconButton(onClick = onBackClicked, enabled = !isLoading) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Kembali",
@@ -78,7 +128,7 @@ fun SignUpScreen(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // --- Judul ---
+            // --- Judul dan Ilustrasi (Kode tetap sama) ---
             Text(
                 text = "Buat Akun",
                 style = MaterialTheme.typography.headlineSmall,
@@ -126,11 +176,11 @@ fun SignUpScreen(
                 // Decorative dots
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val colors = listOf(
-                        Color(0xFF6B9BD1), // Blue
-                        Color(0xFFE57373), // Red
-                        Color(0xFF81C784), // Green
-                        Color(0xFFFFB74D), // Orange
-                        Color(0xFF9575CD)  // Purple
+                        Color(0xFF6B9BD1),
+                        Color(0xFFE57373),
+                        Color(0xFF81C784),
+                        Color(0xFFFFB74D),
+                        Color(0xFF9575CD)
                     )
 
                     drawCircle(
@@ -169,22 +219,9 @@ fun SignUpScreen(
 
             // --- Input Nama ---
             AndalibTextField(
-                value = nama,
-                onValueChange = { nama = it },
-                label = "Nama"
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // --- Input NIP ---
-            AndalibTextField(
-                value = nip,
-                onValueChange = { nip = it },
-                label = "NIP",
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next
-                )
+                value = name,
+                onValueChange = { name = it },
+                label = "Nama Lengkap"
             )
 
             Spacer(Modifier.height(16.dp))
@@ -193,93 +230,31 @@ fun SignUpScreen(
             AndalibTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = "Email"
+                label = "Email",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                )
             )
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Dropdown Role ---
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
-            ) {
-                OutlinedTextField(
-                    value = selectedRole,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Kata sandi") },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Dropdown"
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AndalibDarkBlue,
-                        focusedLabelColor = AndalibDarkBlue,
-                        unfocusedBorderColor = AndalibGray.copy(alpha = 0.5f)
-                    ),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            // --- Input Password ---
+            AndalibPasswordField(
+                value = password,
+                onValueChange = { password = it },
+                label = "Password",
+                keyboardActions = KeyboardActions(
+                    onDone = { handleSignUp() }
                 )
+            )
 
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    listOf("Admin", "Guru", "Siswa").forEach { role ->
-                        DropdownMenuItem(
-                            text = { Text(role) },
-                            onClick = {
-                                selectedRole = role
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // --- Checkbox Terms ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                Checkbox(
-                    checked = agreedToTerms,
-                    onCheckedChange = { agreedToTerms = it },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = AndalibDarkBlue,
-                        checkmarkColor = AndalibWhite
-                    )
-                )
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "Dengan membuat akun, Anda setuju dengan",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AndalibGray,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = "Syarat dan Ketentuan kami.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AndalibLightBlue,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp)) // Tambahkan spacer yang hilang
 
             // --- Tombol Sign Up ---
             AndalibButton(
-                text = "Sign up",
-                onClick = onSignUpClicked
+                text = if (isLoading) "Memproses..." else "Sign up",
+                onClick = { handleSignUp() }
             )
 
             Spacer(Modifier.height(16.dp))
@@ -292,6 +267,22 @@ fun SignUpScreen(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
         }
+    }
+
+    // 3. Tampilkan Progress Dialog
+    if (isLoading) {
+        AlertDialog(
+            onDismissRequest = { /* Tidak bisa di-dismiss saat loading */ },
+            title = { Text("Memproses Registrasi") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(24.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Text("Menghubungi server...")
+                }
+            },
+            confirmButton = {}
+        )
     }
 }
 
