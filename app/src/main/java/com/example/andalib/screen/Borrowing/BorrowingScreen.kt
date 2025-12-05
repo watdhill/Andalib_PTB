@@ -1,4 +1,4 @@
-package com.example.andalib.screen
+package com.example.andalib.screen.Borrowing
 
 import android.content.Context
 import android.net.Uri
@@ -27,11 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.example.andalib.Borrowing
-import com.example.andalib.BorrowingDatabase
 import com.example.andalib.ui.theme.AndalibDarkBlue
 import com.example.andalib.ui.theme.AndalibGray
 import com.example.andalib.ui.theme.AndalibWhite
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.BitmapFactory
@@ -42,22 +42,37 @@ import com.example.andalib.getFutureDate
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.shape.CircleShape
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.andalib.screen.Borrowing.BorrowingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BorrowingScreen() {
+fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
     val context = LocalContext.current
-    val database = remember { BorrowingDatabase(context) }
+    val scope = rememberCoroutineScope()
 
-    var borrowings by remember { mutableStateOf(database.getAllActiveBorrowings()) }
+    // BARU: Ambil state dari ViewModel
+    val borrowings = viewModel.borrowings
+    val isLoading = viewModel.isLoading
+    val vmErrorMessage = viewModel.errorMessage
+
     var searchQuery by remember { mutableStateOf("") }
-    var currentView by remember { mutableStateOf("list") } // list, add, edit
+    var currentView by remember { mutableStateOf("list") }
     var selectedBorrowing by remember { mutableStateOf<Borrowing?>(null) }
+
     var showNotification by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Form States
+    // Efek untuk menampilkan error dari ViewModel (ERROR KONEKSI/API)
+    LaunchedEffect(vmErrorMessage) {
+        if (vmErrorMessage != null) {
+            notificationMessage = "ERROR: $vmErrorMessage"
+            showNotification = true
+        }
+    }
+
+    // Form States (tetap sama)
     var formName by remember { mutableStateOf("") }
     var formNim by remember { mutableStateOf("") }
     var formMajor by remember { mutableStateOf("") }
@@ -69,14 +84,16 @@ fun BorrowingScreen() {
     var formBorrowDate by remember { mutableStateOf(getCurrentDate()) }
     var formReturnDate by remember { mutableStateOf(getFutureDate(7)) }
 
-    val filteredBorrowings = if (searchQuery.isEmpty()) {
-        borrowings
-    } else {
-        database.searchBorrowings(searchQuery)
+    // BARU: Logika pencarian di Screen (hanya memfilter list saat ini) atau menggunakan hasil dari ViewModel
+    val filteredBorrowings = borrowings.filter {
+        searchQuery.isEmpty() ||
+                it.borrowerName.contains(searchQuery, ignoreCase = true) ||
+                it.bookTitle.contains(searchQuery, ignoreCase = true) ||
+                it.nim.contains(searchQuery, ignoreCase = true)
     }
 
     fun refreshBorrowings() {
-        borrowings = database.getAllActiveBorrowings()
+        viewModel.loadBorrowings() // GANTI: Panggil loadBorrowings dari ViewModel
     }
 
     fun showNotif(message: String) {
@@ -137,7 +154,6 @@ fun BorrowingScreen() {
                             resetForm()
                         }) {
                             Icon(
-                                // FIX 1: Mengganti ke AutoMirrored
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Kembali",
                                 tint = AndalibWhite
@@ -152,15 +168,18 @@ fun BorrowingScreen() {
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
                     action = {
-                        TextButton(onClick = { showNotification = false }) {
+                        TextButton(onClick = {
+                            showNotification = false
+                            viewModel.clearErrorMessage() // FIX: Panggil fungsi publik clearErrorMessage
+                        }) {
                             Text("OK", color = AndalibWhite)
                         }
                     },
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = if (vmErrorMessage != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.CheckCircle,
+                            if (vmErrorMessage != null) Icons.Default.Info else Icons.Default.CheckCircle,
                             contentDescription = null,
                             tint = AndalibWhite
                         )
@@ -171,105 +190,118 @@ fun BorrowingScreen() {
                 LaunchedEffect(Unit) {
                     delay(3000)
                     showNotification = false
+                    viewModel.clearErrorMessage() // FIX: Panggil fungsi publik clearErrorMessage
                 }
             }
         }
     ) { padding ->
-        when (currentView) {
-            "list" -> BorrowingListView(
-                borrowings = filteredBorrowings,
-                searchQuery = searchQuery,
-                onSearchChange = { searchQuery = it },
-                onEditClick = { borrowing ->
-                    selectedBorrowing = borrowing
-                    formName = borrowing.borrowerName
-                    formNim = borrowing.nim
-                    formMajor = borrowing.major
-                    formContact = borrowing.contact
-                    formBookTitle = borrowing.bookTitle
-                    formAuthor = borrowing.author
-                    formIsbn = borrowing.isbn
-                    formIdentityPath = borrowing.identityPath
-                    formBorrowDate = borrowing.borrowDate
-                    formReturnDate = borrowing.returnDate
-                    currentView = "edit"
-                },
-                onDeleteClick = { borrowing ->
-                    selectedBorrowing = borrowing
-                    showDeleteDialog = true
-                },
-                modifier = Modifier.padding(padding)
-            )
+        // BARU: Tampilkan loading indicator
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = AndalibDarkBlue)
+            }
+        } else {
+            when (currentView) {
+                "list" -> BorrowingListView(
+                    borrowings = filteredBorrowings,
+                    searchQuery = searchQuery,
+                    onSearchChange = {
+                        searchQuery = it
+                        viewModel.searchBorrowings(it) // GANTI: Panggil search dari ViewModel
+                    },
+                    onEditClick = { borrowing ->
+                        selectedBorrowing = borrowing
+                        formName = borrowing.borrowerName
+                        formNim = borrowing.nim
+                        formMajor = borrowing.major
+                        formContact = borrowing.contact
+                        formBookTitle = borrowing.bookTitle
+                        formAuthor = borrowing.author
+                        formIsbn = borrowing.isbn
+                        formIdentityPath = borrowing.identityPath
+                        formBorrowDate = borrowing.borrowDate
+                        formReturnDate = borrowing.returnDate
+                        currentView = "edit"
+                    },
+                    onDeleteClick = { borrowing ->
+                        selectedBorrowing = borrowing
+                        showDeleteDialog = true
+                    },
+                    modifier = Modifier.padding(padding)
+                )
 
-            "add", "edit" -> AddEditBorrowingView(
-                isEdit = currentView == "edit",
-                name = formName,
-                nim = formNim,
-                major = formMajor,
-                contact = formContact,
-                bookTitle = formBookTitle,
-                author = formAuthor,
-                isbn = formIsbn,
-                identityPath = formIdentityPath,
-                borrowDate = formBorrowDate,
-                returnDate = formReturnDate,
-                onNameChange = { formName = it },
-                onNimChange = { formNim = it },
-                onMajorChange = { formMajor = it },
-                onContactChange = { formContact = it },
-                onBookTitleChange = { formBookTitle = it },
-                onAuthorChange = { formAuthor = it },
-                onIsbnChange = { formIsbn = it },
-                onIdentityPathChange = { formIdentityPath = it },
-                onBorrowDateChange = { formBorrowDate = it },
-                onReturnDateChange = { formReturnDate = it },
-                onSave = {
-                    if (formName.isNotEmpty() && formNim.isNotEmpty() && formBookTitle.isNotEmpty()) {
-                        if (currentView == "add") {
-                            val newBorrowing = Borrowing(
-                                borrowerName = formName,
-                                nim = formNim,
-                                major = formMajor,
-                                contact = formContact,
-                                bookTitle = formBookTitle,
-                                author = formAuthor,
-                                isbn = formIsbn,
-                                identityPath = formIdentityPath,
-                                borrowDate = formBorrowDate,
-                                returnDate = formReturnDate
-                            )
-                            val result = database.insertBorrowing(newBorrowing)
-                            if (result > 0) {
-                                showNotif("✓ Buku berhasil dipinjamkan!")
-                            } else {
-                                showNotif("✗ Gagal meminjamkan buku")
+                "add", "edit" -> AddEditBorrowingView(
+                    isEdit = currentView == "edit",
+                    name = formName,
+                    nim = formNim,
+                    major = formMajor,
+                    contact = formContact,
+                    bookTitle = formBookTitle,
+                    author = formAuthor,
+                    isbn = formIsbn,
+                    identityPath = formIdentityPath,
+                    borrowDate = formBorrowDate,
+                    returnDate = formReturnDate,
+                    onNameChange = { formName = it },
+                    onNimChange = { formNim = it },
+                    onMajorChange = { formMajor = it },
+                    onContactChange = { formContact = it },
+                    onBookTitleChange = { formBookTitle = it },
+                    onAuthorChange = { formAuthor = it },
+                    onIsbnChange = { formIsbn = it },
+                    onIdentityPathChange = { formIdentityPath = it },
+                    onBorrowDateChange = { formBorrowDate = it },
+                    onReturnDateChange = { formReturnDate = it },
+                    onSave = {
+                        if (formName.isNotEmpty() && formNim.isNotEmpty() && formBookTitle.isNotEmpty()) {
+                            scope.launch { // launch sekarang dikenali
+                                val success = if (currentView == "add") {
+                                    val newBorrowing = Borrowing(
+                                        id = 0,
+                                        borrowerName = formName,
+                                        nim = formNim,
+                                        major = formMajor,
+                                        contact = formContact,
+                                        bookTitle = formBookTitle,
+                                        author = formAuthor,
+                                        isbn = formIsbn,
+                                        identityPath = formIdentityPath,
+                                        borrowDate = formBorrowDate,
+                                        returnDate = formReturnDate
+                                    )
+                                    viewModel.createBorrowing(newBorrowing) // Suspend call di dalam launch
+                                } else {
+                                    selectedBorrowing?.let { borrowing ->
+                                        val updatedBorrowing = borrowing.copy(
+                                            borrowerName = formName,
+                                            nim = formNim,
+                                            major = formMajor,
+                                            contact = formContact,
+                                            bookTitle = formBookTitle,
+                                            author = formAuthor,
+                                            isbn = formIsbn,
+                                            identityPath = formIdentityPath,
+                                            borrowDate = formBorrowDate,
+                                            returnDate = formReturnDate
+                                        )
+                                        viewModel.updateBorrowing(updatedBorrowing) // Suspend call di dalam launch
+                                    } ?: false
+                                }
+
+                                if (success) {
+                                    showNotif(if (currentView == "add") "✓ Buku berhasil dipinjamkan!" else "✓ Data peminjaman berhasil diperbarui!")
+                                    currentView = "list"
+                                    resetForm()
+                                }
                             }
                         } else {
-                            selectedBorrowing?.let { borrowing ->
-                                val updatedBorrowing = borrowing.copy(
-                                    borrowerName = formName,
-                                    nim = formNim,
-                                    major = formMajor,
-                                    contact = formContact,
-                                    bookTitle = formBookTitle,
-                                    author = formAuthor,
-                                    isbn = formIsbn,
-                                    identityPath = formIdentityPath,
-                                    borrowDate = formBorrowDate,
-                                    returnDate = formReturnDate
-                                )
-                                database.updateBorrowing(updatedBorrowing)
-                                showNotif("✓ Data peminjaman berhasil diperbarui!")
-                            }
+                            showNotif("Harap isi semua kolom bertanda *")
                         }
-                        refreshBorrowings()
-                        currentView = "list"
-                        resetForm()
-                    }
-                },
-                context = context,
-                modifier = Modifier.padding(padding)
-            )
+                    },
+                    context = context,
+                    modifier = Modifier.padding(padding)
+                )
+            }
         }
     }
 
@@ -288,14 +320,17 @@ fun BorrowingScreen() {
             confirmButton = {
                 Button(
                     onClick = {
-                        selectedBorrowing?.let { borrowing ->
-                            database.deleteBorrowing(borrowing.id)
-                            refreshBorrowings()
-                            showNotif("✓ Data peminjaman berhasil dihapus!")
-                            currentView = "list"
-                            selectedBorrowing = null
+                        scope.launch { // launch sekarang dikenali
+                            selectedBorrowing?.let { borrowing ->
+                                val success = viewModel.deleteBorrowing(borrowing.id) // Suspend call di dalam launch
+                                if (success) {
+                                    showNotif("✓ Data peminjaman berhasil dihapus!")
+                                    currentView = "list"
+                                    selectedBorrowing = null
+                                }
+                            }
+                            showDeleteDialog = false
                         }
-                        showDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
@@ -313,7 +348,7 @@ fun BorrowingScreen() {
     }
 }
 
-// --- Composable untuk List Peminjaman Aktif ---
+// --- Composable Lainnya ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -418,7 +453,6 @@ fun BorrowingItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        // FIX 2: Mengganti ke AutoMirrored
                         Icons.AutoMirrored.Filled.MenuBook,
                         contentDescription = "Book Icon",
                         modifier = Modifier.size(32.dp),
@@ -470,7 +504,6 @@ fun BorrowingItem(
                 }
             }
 
-            // FIX 3: Mengganti ke HorizontalDivider
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             // --- Bagian Bawah: Tombol Aksi ---
@@ -592,7 +625,6 @@ fun AddEditBorrowingView(
                 fontWeight = FontWeight.Bold,
                 color = AndalibDarkBlue
             )
-            // FIX 3: Mengganti ke HorizontalDivider
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             // --- Form Peminjam ---

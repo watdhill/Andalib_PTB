@@ -9,7 +9,7 @@ data class Borrowing(
     val bookTitle: String,
     val author: String,
     val isbn: String,
-    val identityPath: String, // Path untuk foto identitas/KTM
+    val identityPath: String,
     val borrowDate: String,
     val returnDate: String
 )
