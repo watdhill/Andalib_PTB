@@ -1,0 +1,96 @@
+// Ganti 'postgresql' dengan 'mysql' atau 'sqlite' jika berbeda
+datasource db {
+  provider = "mysql" 
+  url      = env("DATABASE_URL") 
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// ENTITAS UNTUK LOGIN & ADMINISTRASI (Admin, Anggota)
+// ----------------------------------------------------
+
+// Model Admin untuk Login (Pengguna Aplikasi Perpustakaan)
+model Admin {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique // Digunakan untuk login
+  password String
+  name     String
+  
+  // Relasi: 1 Admin bisa melakukan banyak Peminjaman
+  Peminjaman Peminjaman[]
+}
+
+// Model Anggota (Peminjam)
+model Anggota {
+  id         Int     @id @default(autoincrement())
+  name       String
+  memberId   String? @unique // Nomor anggota (opsional)
+  address    String?
+  phone      String?
+  
+  // Relasi: 1 Anggota bisa melakukan banyak Peminjaman
+  Peminjaman Peminjaman[]
+}
+
+// ----------------------------------------------------
+// ENTITAS UNTUK BUKU & PEMINJAMAN
+// ----------------------------------------------------
+
+model Kategori {
+  id        Int    @id @default(autoincrement())
+  name      String @unique
+  
+  // Relasi: 1 Kategori memiliki banyak Buku
+  Buku      Buku[]
+}
+
+model Buku {
+  id          Int     @id @default(autoincrement())
+  title       String
+  author      String
+  publicationYear Int?
+  quantity    Int     @default(1) // Jumlah stok
+  
+  // Relasi ke Kategori
+  kategoriId  Int
+  kategori    Kategori @relation(fields: [kategoriId], references: [id])
+  
+  // Relasi: 1 Buku bisa dipinjam berkali-kali
+  Peminjaman Peminjaman[]
+}
+
+model Denda {
+  id        Int      @id @default(autoincrement())
+  amount    Int // Jumlah denda (Rp)
+  reason    String? // Keterangan (misal: Terlambat 3 hari)
+  
+  // Relasi: 1 Denda terkait dengan 1 Peminjaman
+  peminjamanId Int @unique
+  peminjaman   Peminjaman @relation(fields: [peminjamanId], references: [id])
+}
+
+model Peminjaman {
+  id             Int       @id @default(autoincrement())
+  borrowDate     DateTime  @default(now())
+  dueDate        DateTime
+  returnDate     DateTime? // Null jika belum dikembalikan
+  isReturned     Boolean   @default(false)
+  
+  // Relasi ke Buku
+  bukuId         Int
+  buku           Buku      @relation(fields: [bukuId], references: [id])
+  
+  // Relasi ke Anggota (Peminjam)
+  anggotaId      Int
+  anggota        Anggota   @relation(fields: [anggotaId], references: [id])
+  
+  // Relasi ke Admin (Pencatat Peminjaman/Pengembalian)
+  adminId        Int
+  admin          Admin     @relation(fields: [adminId], references: [id])
+  
+  // Relasi ke Denda (Opsional)
+  denda          Denda?
+}

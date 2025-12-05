@@ -11,13 +11,17 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.Response // PENTING: Untuk menangani status HTTP
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-// PASTIKAN URL INI BENAR (Emulator ke port 3000 Express.js)
-private const val BASE_URL = "http://192.168.1.9:3000/api/"
+// PASTIKAN URL INI BENAR! Ganti jika IP PC Anda berubah atau jika Anda menggunakan emulator standar (10.0.2.2).
+private const val BASE_URL = "http://192.168.1.10:3000/api/"
 
+/**
+ * Interceptor untuk menambahkan token JWT ke setiap request terproteksi.
+ */
 fun createAuthInterceptor(tokenManager: TokenManager): Interceptor {
     return Interceptor { chain ->
         val token = runBlocking {
@@ -26,6 +30,7 @@ fun createAuthInterceptor(tokenManager: TokenManager): Interceptor {
 
         val requestBuilder = chain.request().newBuilder()
 
+        // Tambahkan header Authorization jika token tersedia
         if (token != null) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
@@ -34,8 +39,12 @@ fun createAuthInterceptor(tokenManager: TokenManager): Interceptor {
     }
 }
 
+/**
+ * Konfigurasi OkHttpClient dengan logging dan auth interceptor.
+ */
 fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
     val logging = HttpLoggingInterceptor().apply {
+        // Level BODY menampilkan request dan response body di Logcat
         level = HttpLoggingInterceptor.Level.BODY
     }
 
@@ -45,6 +54,9 @@ fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
         .build()
 }
 
+/**
+ * Inisialisasi Retrofit.
+ */
 fun createRetrofit(tokenManager: TokenManager): Retrofit {
     return Retrofit.Builder()
         .baseUrl(BASE_URL)
@@ -53,16 +65,23 @@ fun createRetrofit(tokenManager: TokenManager): Retrofit {
         .build()
 }
 
+/**
+ * Interface Service API untuk otentikasi.
+ */
 interface AuthService {
-    @POST("login")
-    suspend fun login(@Body request: LoginRequest): LoginResponse
+    // KITAUBAH JADI: Response<LoginResponse>
+    @POST("auth/login")
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
-    // Endpoint Sign Up (TAMBAH INI)
-    @POST("signup")
-    suspend fun signup(@Body request: SignUpRequest): SignUpResponse
-
+    // KITAUBAH JADI: Response<SignUpResponse>
+    // Ini memperbaiki error "Unresolved reference" di ViewModel nanti karena kita akan akses body()
+    @POST("auth/register") // Pastikan ini cocok dengan /api/auth + /register
+    suspend fun signup(@Body request: SignUpRequest): Response<SignUpResponse>
 }
 
+/**
+ * Fungsi untuk membuat instance AuthService.
+ */
 fun createAuthService(tokenManager: TokenManager): AuthService {
     return createRetrofit(tokenManager).create(AuthService::class.java)
 }
