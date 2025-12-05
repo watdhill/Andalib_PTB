@@ -17,7 +17,7 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 // PASTIKAN URL INI BENAR! Ganti jika IP PC Anda berubah atau jika Anda menggunakan emulator standar (10.0.2.2).
-private const val BASE_URL = "http://192.168.1.10:3000/api/"
+private const val BASE_URL = "http://10.0.2.2:3000/api/"
 
 /**
  * Interceptor untuk menambahkan token JWT ke setiap request terproteksi.
@@ -84,4 +84,11 @@ interface AuthService {
  */
 fun createAuthService(tokenManager: TokenManager): AuthService {
     return createRetrofit(tokenManager).create(AuthService::class.java)
+}
+
+/**
+ * Fungsi untuk membuat instance MemberService.
+ */
+fun createMemberService(tokenManager: TokenManager): MemberService {
+    return createRetrofit(tokenManager).create(MemberService::class.java)
 }

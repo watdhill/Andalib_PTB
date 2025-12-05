@@ -1,154 +1,166 @@
-// controllers/anggotaController.js
 const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const path = require('path');
 
 const prisma = new PrismaClient();
 
-/**
- * 1. Menambahkan Anggota Baru
- */
+// 1. Menambahkan Anggota Baru
 const createAnggota = async (req, res) => {
-    const { name, memberId, address, phone } = req.body;
+    // Ambil data dari body
+    // Catatan: field 'email' dan 'photo' bersifat opsional sesuai permintaan
+    const { nim, name, gender, faculty, major, contact, email } = req.body;
     
-    if (!name) {
-        return res.status(400).json({ message: 'Nama anggota wajib diisi.' });
+    // Ambil file foto jika ada
+    const photoPath = req.file ? req.file.filename : null;
+
+    // VALIDASI: Semuanya wajib diisi KECUALI foto dan email
+    if (!nim || !name || !gender || !faculty || !major || !contact) {
+        // Hapus foto jika validasi gagal agar tidak menumpuk sampah file
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+            success: false, 
+            message: 'NIM, Nama, Gender, Fakultas, Jurusan, dan Kontak wajib diisi.' 
+        });
     }
 
     try {
         const newAnggota = await prisma.anggota.create({
             data: {
-                name,
-                memberId: memberId || null, // memberId bersifat opsional
-                address,
-                phone,
+                nim: nim, // NIM adalah Primary Key (String)
+                name: name,
+                gender: gender,   // Harus sesuai ENUM: "LAKI_LAKI" atau "PEREMPUAN"
+                faculty: faculty, // Harus sesuai ENUM Faculty
+                major: major,     // Harus sesuai ENUM Major
+                contact: contact,
+                email: email, 
+                photoPath: photoPath,
             },
         });
 
         res.status(201).json({ 
+            success: true,
             message: 'Anggota berhasil ditambahkan', 
-            anggota: newAnggota 
+            data: newAnggota 
         });
     } catch (error) {
-        console.error('Error creating Anggota:', error);
-        // Tangani error unik (jika memberId sudah ada)
-        if (error.code === 'P2002' && error.meta.target.includes('memberId')) {
-            return res.status(409).json({ message: 'Nomor anggota sudah digunakan.' });
+        console.error("Create Error:", error);
+        // Hapus foto jika database gagal
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); 
+
+        // Error P2002: Unique constraint failed (NIM sudah ada)
+        if (error.code === 'P2002') {
+            return res.status(409).json({ success: false, message: 'NIM sudah terdaftar.' });
         }
-        res.status(500).json({ message: 'Gagal menambahkan anggota.' });
+        // Error P2003: Foreign key constraint failed (jika Enum salah)
+        res.status(500).json({ success: false, message: 'Gagal menambahkan anggota. Cek format data.' });
     }
 };
 
-/**
- * 2. Mendapatkan Semua Anggota
- */
+// 2. Mendapatkan Semua Anggota
 const getAllAnggota = async (req, res) => {
     try {
         const anggotaList = await prisma.anggota.findMany({
-            // Bisa tambahkan filtering, sorting, pagination jika dibutuhkan
-            orderBy: { name: 'asc' } 
+            orderBy: { name: 'asc' }
         });
-        res.status(200).json(anggotaList);
+        
+        // Mapping URL foto agar bisa diakses Android
+        const mappedList = anggotaList.map(member => ({
+            ...member,
+            photoUrl: member.photoPath ? `http://${req.headers.host}/uploads/${member.photoPath}` : null
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: mappedList
+        });
     } catch (error) {
-        console.error('Error fetching Anggota:', error);
-        res.status(500).json({ message: 'Gagal mengambil data anggota.' });
+        res.status(500).json({ success: false, message: 'Gagal mengambil data anggota.' });
     }
 };
 
-/**
- * 3. Mendapatkan Detail Anggota
- */
-const getAnggotaById = async (req, res) => {
-    const id = parseInt(req.params.id);
-
-    try {
-        const anggota = await prisma.anggota.findUnique({
-            where: { id },
-        });
-
-        if (!anggota) {
-            return res.status(404).json({ message: 'Anggota tidak ditemukan.' });
-        }
-        res.status(200).json(anggota);
-    } catch (error) {
-        console.error('Error fetching Anggota by ID:', error);
-        res.status(500).json({ message: 'Gagal mengambil detail anggota.' });
-    }
-};
-
-/**
- * 4. Mengubah Data Anggota
- */
+// 3. Mengubah Data Anggota (Berdasarkan NIM)
 const updateAnggota = async (req, res) => {
-    const id = parseInt(req.params.id);
-    const { name, memberId, address, phone } = req.body;
-
-    // Pastikan setidaknya ada satu field yang diubah
-    if (!name && !memberId && !address && !phone) {
-        return res.status(400).json({ message: 'Setidaknya satu field harus diisi untuk update.' });
-    }
+    const { targetNim } = req.params; // NIM yang akan diedit (dikirim via URL)
+    const { name, gender, faculty, major, contact, email } = req.body;
+    const newPhoto = req.file ? req.file.filename : undefined;
 
     try {
+        // Cari data lama untuk menghapus foto lama jika ada foto baru
+        const oldData = await prisma.anggota.findUnique({ 
+            where: { nim: targetNim } 
+        });
+
+        if (!oldData) return res.status(404).json({ success: false, message: 'Anggota tidak ditemukan.' });
+
+        const updateData = {
+            name,
+            gender,
+            faculty,
+            major,
+            contact,
+            email: email || oldData.email // Keep old email if not provided
+        };
+
+        if (newPhoto) {
+            updateData.photoPath = newPhoto;
+            // Hapus file fisik lama
+            if (oldData.photoPath) {
+                const oldPath = path.join(__dirname, '../uploads/', oldData.photoPath);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+        }
+
         const updatedAnggota = await prisma.anggota.update({
-            where: { id },
-            data: {
-                name,
-                memberId,
-                address,
-                phone,
-            },
+            where: { nim: targetNim },
+            data: updateData,
         });
 
         res.status(200).json({ 
+            success: true,
             message: 'Data anggota berhasil diubah', 
-            anggota: updatedAnggota 
+            data: updatedAnggota 
         });
     } catch (error) {
-        console.error('Error updating Anggota:', error);
-        // Error P2025: Record to update not found
-        if (error.code === 'P2025') {
-            return res.status(404).json({ message: 'Anggota tidak ditemukan.' });
-        }
-        res.status(500).json({ message: 'Gagal mengubah data anggota.' });
+        console.error("Update Error:", error);
+        res.status(500).json({ success: false, message: 'Gagal mengubah data anggota.' });
     }
 };
 
-/**
- * 5. Menghapus Anggota
- */
+// 4. Menghapus Anggota (Berdasarkan NIM)
 const deleteAnggota = async (req, res) => {
-    const id = parseInt(req.params.id);
+    const { targetNim } = req.params;
 
     try {
-        // Cek apakah anggota memiliki Peminjaman aktif
+        const memberToDelete = await prisma.anggota.findUnique({ where: { nim: targetNim } });
+        
+        if (!memberToDelete) return res.status(404).json({ success: false, message: 'Anggota tidak ditemukan.' });
+
+        // Cek Peminjaman aktif menggunakan relasi anggotaNim
         const activeBorrowings = await prisma.peminjaman.count({
-            where: {
-                anggotaId: id,
-                isReturned: false,
+            where: { 
+                anggotaNim: targetNim, 
+                isReturned: false 
             },
         });
 
         if (activeBorrowings > 0) {
-            return res.status(400).json({ message: `Anggota ini tidak bisa dihapus karena masih memiliki ${activeBorrowings} peminjaman aktif.` });
+            return res.status(400).json({ success: false, message: 'Anggota ini masih meminjam buku.' });
         }
 
-        await prisma.anggota.delete({
-            where: { id },
-        });
+        // Hapus dari DB
+        await prisma.anggota.delete({ where: { nim: targetNim } });
 
-        res.status(200).json({ message: 'Anggota berhasil dihapus.' });
+        // Hapus File Foto
+        if (memberToDelete.photoPath) {
+            const filePath = path.join(__dirname, '../uploads/', memberToDelete.photoPath);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+
+        res.status(200).json({ success: true, message: 'Anggota berhasil dihapus.' });
     } catch (error) {
-        console.error('Error deleting Anggota:', error);
-        if (error.code === 'P2025') {
-            return res.status(404).json({ message: 'Anggota tidak ditemukan.' });
-        }
-        res.status(500).json({ message: 'Gagal menghapus anggota.' });
+        console.error("Delete Error:", error);
+        res.status(500).json({ success: false, message: 'Gagal menghapus anggota.' });
     }
 };
 
-
-module.exports = {
-    createAnggota,
-    getAllAnggota,
-    getAnggotaById,
-    updateAnggota,
-    deleteAnggota,
-};
+module.exports = { createAnggota, getAllAnggota, updateAnggota, deleteAnggota };

@@ -1,7 +1,7 @@
 // Ganti 'postgresql' dengan 'mysql' atau 'sqlite' jika berbeda
 datasource db {
-  provider = "mysql" 
-  url      = env("DATABASE_URL") 
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -9,88 +9,179 @@ generator client {
 }
 
 // ----------------------------------------------------
-// ENTITAS UNTUK LOGIN & ADMINISTRASI (Admin, Anggota)
+// ENUM DEFINITIONS
 // ----------------------------------------------------
 
-// Model Admin untuk Login (Pengguna Aplikasi Perpustakaan)
+enum Gender {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
+enum Faculty {
+  HUKUM
+  PERTANIAN
+  KEDOKTERAN
+  MIPA
+  EKONOMI_BISNIS
+  PETERNAKAN
+  ILMU_BUDAYA
+  FISIP
+  TEKNIK
+  FARMASI
+  TEKNOLOGI_PERTANIAN
+  KESEHATAN_MASYARAKAT
+  KEPERAWATAN
+  KEDOKTERAN_GIGI
+  TEKNOLOGI_INFORMASI
+}
+
+enum Major {
+  ILMU_HUKUM
+  AGRIBISNIS
+  AGROTEKNOLOGI
+  ILMU_TANAH
+  PROTEKSI_TANAMAN
+  PENYULUHAN_PERTANIAN
+  AGROEKOTEKNOLOGI
+
+  PENDIDIKAN_DOKTER
+  KEBIDANAN
+  PSIKOLOGI
+  ILMU_BIOMEDIS
+
+  KIMIA
+  BIOLOGI
+  MATEMATIKA
+  FISIKA
+
+  EKONOMI
+  MANAJEMEN
+  AKUNTANSI
+
+  PRODUKSI_TERNAK
+  NUTRISI_DAN_MAKANAN_TERNAK
+
+  ILMU_SEJARAH
+  SASTRA_INGGRIS
+  SASTRA_INDONESIA
+  SASTRA_MINANGKABAU
+  SASTRA_JEPANG
+
+  ILMU_POLITIK
+  SOSIOLOGI
+  ANTROPOLOGI_SOSIAL
+  ILMU_HUBUNGAN_INTERNASIONAL
+  ILMU_KOMUNIKASI
+  ADMINISTRASI_PUBLIK
+
+  TEKNIK_MESIN
+  TEKNIK_SIPIL
+  TEKNIK_LINGKUNGAN
+  TEKNIK_INDUSTRI
+  TEKNIK_ELEKTRO
+
+  FARMASI
+
+  TEKNOLOGI_PANGAN_HASIL_PERTANIAN
+  TEKNIK_PERTANIAN_BIOSISTEM
+  TEKNOLOGI_INDUSTRI_PERTANIAN
+
+  KESEHATAN_MASYARAKAT
+  GIZI
+
+  KEPERAWATAN
+
+  PENDIDIKAN_DOKTER_GIGI
+
+  SISTEM_INFORMASI
+  INFORMATIKA
+  TEKNIK_KOMPUTER
+}
+
+// ----------------------------------------------------
+// ADMIN
+// ----------------------------------------------------
+
 model Admin {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique // Digunakan untuk login
-  password String
-  name     String
-  
-  // Relasi: 1 Admin bisa melakukan banyak Peminjaman
-  Peminjaman Peminjaman[]
-}
-
-// Model Anggota (Peminjam)
-model Anggota {
-  id         Int     @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
+  email      String       @unique
+  password   String
   name       String
-  memberId   String? @unique // Nomor anggota (opsional)
-  address    String?
-  phone      String?
-  
-  // Relasi: 1 Anggota bisa melakukan banyak Peminjaman
+
   Peminjaman Peminjaman[]
 }
 
 // ----------------------------------------------------
-// ENTITAS UNTUK BUKU & PEMINJAMAN
+// ANGGOTA — PRIMARY KEY = NIM
+// ----------------------------------------------------
+
+model Anggota {
+  nim               String   @id
+  name              String
+
+  gender            Gender
+  faculty           Faculty
+  major             Major
+
+  contact           String
+  email             String?
+  photoPath         String?
+  registrationDate  DateTime @default(now())
+
+  Peminjaman        Peminjaman[]
+}
+
+// ----------------------------------------------------
+// KATEGORI, BUKU, DENDA, PEMINJAMAN
 // ----------------------------------------------------
 
 model Kategori {
-  id        Int    @id @default(autoincrement())
-  name      String @unique
-  
-  // Relasi: 1 Kategori memiliki banyak Buku
-  Buku      Buku[]
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+
+  Buku  Buku[]
 }
 
 model Buku {
-  id          Int     @id @default(autoincrement())
-  title       String
-  author      String
+  id              Int        @id @default(autoincrement())
+  title           String
+  author          String
   publicationYear Int?
-  quantity    Int     @default(1) // Jumlah stok
-  
-  // Relasi ke Kategori
-  kategoriId  Int
-  kategori    Kategori @relation(fields: [kategoriId], references: [id])
-  
-  // Relasi: 1 Buku bisa dipinjam berkali-kali
+  quantity        Int        @default(1)
+
+  kategoriId Int
+  kategori   Kategori @relation(fields: [kategoriId], references: [id])
+
   Peminjaman Peminjaman[]
 }
 
 model Denda {
-  id        Int      @id @default(autoincrement())
-  amount    Int // Jumlah denda (Rp)
-  reason    String? // Keterangan (misal: Terlambat 3 hari)
-  
-  // Relasi: 1 Denda terkait dengan 1 Peminjaman
+  id           Int       @id @default(autoincrement())
+  amount       Int
+  reason       String?
+
   peminjamanId Int @unique
   peminjaman   Peminjaman @relation(fields: [peminjamanId], references: [id])
 }
 
 model Peminjaman {
-  id             Int       @id @default(autoincrement())
-  borrowDate     DateTime  @default(now())
-  dueDate        DateTime
-  returnDate     DateTime? // Null jika belum dikembalikan
-  isReturned     Boolean   @default(false)
-  
-  // Relasi ke Buku
-  bukuId         Int
-  buku           Buku      @relation(fields: [bukuId], references: [id])
-  
-  // Relasi ke Anggota (Peminjam)
-  anggotaId      Int
-  anggota        Anggota   @relation(fields: [anggotaId], references: [id])
-  
-  // Relasi ke Admin (Pencatat Peminjaman/Pengembalian)
-  adminId        Int
-  admin          Admin     @relation(fields: [adminId], references: [id])
-  
-  // Relasi ke Denda (Opsional)
-  denda          Denda?
+  id         Int       @id @default(autoincrement())
+  borrowDate DateTime  @default(now())
+  dueDate    DateTime
+  returnDate DateTime?
+  isReturned Boolean   @default(false)
+
+  // Relasi Buku
+  bukuId     Int
+  buku       Buku      @relation(fields: [bukuId], references: [id])
+
+  // Relasi Anggota (PAKAI NIM BUKAN ID)
+  anggotaNim String
+  anggota    Anggota   @relation(fields: [anggotaNim], references: [nim])
+
+  // Relasi Admin
+  adminId    Int
+  admin      Admin     @relation(fields: [adminId], references: [id])
+
+  denda      Denda?
 }
