@@ -29,6 +29,10 @@ import android.graphics.BitmapFactory
 import com.example.andalib.Book
 import com.example.andalib.BookDatabase
 import java.io.File
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.andalib.data.network.createBookService
 import com.example.andalib.saveImageToInternalStorage
 import com.example.andalib.ui.theme.AndalibDarkBlue
 
@@ -38,6 +42,7 @@ import com.example.andalib.ui.theme.AndalibDarkBlue
 fun BookScreen() {
     val context = LocalContext.current
     val database = remember { BookDatabase(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var books by remember { mutableStateOf(database.getAllBooks()) }
     var searchQuery by remember { mutableStateOf("") }
@@ -196,8 +201,41 @@ fun BookScreen() {
                                 category = formCategory,
                                 coverPath = formCoverPath
                             )
-                            database.insertBook(newBook)
+                            val localId = database.insertBook(newBook)
                             showNotif("✓ Buku berhasil ditambahkan!")
+
+                            // Try to sync to server in background
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val service = createBookService()
+                                    val payload = mapOf<String, Any?>(
+                                        "title" to newBook.title,
+                                        "author" to newBook.author,
+                                        "publicationYear" to newBook.year.toIntOrNull(),
+                                        // quantity not present in local DB; default to 1
+                                        "quantity" to 1,
+                                        // send kategoriName so backend can find or create category
+                                        "kategoriName" to newBook.category
+                                    )
+                                    val resp = service.createBook(payload)
+                                    if (resp.isSuccessful) {
+                                        val body = resp.body()
+                                        val bukuObj = body?.get("buku") as? Map<*, *>
+                                        val serverIdAny = bukuObj?.get("id")
+                                        val serverId = when (serverIdAny) {
+                                            is Double -> serverIdAny.toInt()
+                                            is Int -> serverIdAny
+                                            is Long -> serverIdAny.toInt()
+                                            else -> null
+                                        }
+                                        if (serverId != null) {
+                                            database.setServerId(localId.toInt(), serverId)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    // Log or ignore sync error; local DB has the data
+                                }
+                            }
                         } else {
                             selectedBook?.let { book ->
                                 val updatedBook = book.copy(
@@ -210,6 +248,26 @@ fun BookScreen() {
                                 )
                                 database.updateBook(updatedBook)
                                 showNotif("✓ Buku berhasil diperbarui!")
+
+                                // Sync update to server if this book has serverId
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        val serverId = updatedBook.serverId
+                                        if (serverId != null) {
+                                            val service = createBookService()
+                                            val payload = mapOf<String, Any?>(
+                                                "title" to updatedBook.title,
+                                                "author" to updatedBook.author,
+                                                "publicationYear" to updatedBook.year.toIntOrNull(),
+                                                "quantity" to 1,
+                                                "kategoriName" to updatedBook.category
+                                            )
+                                            service.updateBook(serverId, payload)
+                                        }
+                                    } catch (e: Exception) {
+                                        // ignore
+                                    }
+                                }
                             }
                         }
                         refreshBooks()
@@ -231,6 +289,19 @@ fun BookScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     selectedBook?.let { book ->
+                        // attempt to delete on server if serverId exists
+                        val serverId = book.serverId
+                        if (serverId != null) {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val service = createBookService()
+                                    service.deleteBook(serverId)
+                                } catch (e: Exception) {
+                                    // ignore
+                                }
+                            }
+                        }
+
                         database.deleteBook(book.id)
                         refreshBooks()
                         showNotif("✓ Buku berhasil dihapus!")
