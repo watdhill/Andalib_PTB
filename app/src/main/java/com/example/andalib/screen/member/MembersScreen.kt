@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,7 @@ import com.example.andalib.R
 import com.example.andalib.data.network.MemberService
 import com.example.andalib.data.network.createMemberService
 import com.example.andalib.data.TokenManager
+import com.example.andalib.ui.theme.AndalibDarkBlue
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -211,7 +213,10 @@ fun MembersScreen() {
                         color = Color.White
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AndalibDarkBlue,
+                    titleContentColor = Color.White
+                ),
                 navigationIcon = {
                     if (currentView != "list") {
                         IconButton(onClick = {
@@ -222,11 +227,7 @@ fun MembersScreen() {
                     }
                 },
                 actions = {
-                    if (currentView == "list") {
-                        IconButton(onClick = { resetForm(); currentView = "add" }) {
-                            Icon(Icons.Default.Add, "Tambah", tint = Color.White)
-                        }
-                    }
+                    // Actions removed - button now inside card
                 }
             )
         }
@@ -274,7 +275,8 @@ fun MembersScreen() {
                             Log.e("MembersScreen", "Error selecting member", e)
                             Toast.makeText(context, "Gagal memuat detail anggota: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
-                    }
+                    },
+                    onAddClick = { resetForm(); currentView = "add" }
                 )
                 "detail" -> {
                     if (selectedMember != null) {
@@ -345,26 +347,66 @@ fun MemberListView(
     members: List<MemberApi>,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    onMemberClick: (MemberApi) -> Unit
+    onMemberClick: (MemberApi) -> Unit,
+    onAddClick: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchChange,
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            placeholder = { Text("Cari Nama atau NIM...") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            shape = RoundedCornerShape(12.dp)
-        )
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-            if (members.isEmpty()) {
-                item {
-                    Text("Data tidak ditemukan.", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.Gray)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AndalibDarkBlue)
+            .padding(16.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Title
+                Text(
+                    text = "Anggota Perpustakaan",
+                    modifier = Modifier.padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                
+                // Member List
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (members.isEmpty()) {
+                        item {
+                            Text(
+                                "Data tidak ditemukan.",
+                                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                textAlign = TextAlign.Center,
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        items(members) { member ->
+                            MemberItem(member, onClick = { onMemberClick(member) })
+                        }
+                    }
                 }
-            } else {
-                items(members) { member ->
-                    MemberItem(member, onClick = { onMemberClick(member) })
-                    Spacer(modifier = Modifier.height(8.dp))
+                
+                // Add Member Button at bottom
+                Button(
+                    onClick = onAddClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 24.dp)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AndalibDarkBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tambah Anggota", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -374,26 +416,109 @@ fun MemberListView(
 @Composable
 fun MemberItem(member: MemberApi, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar
+            val defaultPhoto = try {
+                if (member.gender.uppercase() == "LAKI_LAKI") R.drawable.default_pria else R.drawable.default_wanita
+            } catch (e: Exception) {
+                R.drawable.default_pria
+            }
             AsyncImage(
-                model = member.photoUrl ?: R.drawable.default_pria,
+                model = member.photoUrl ?: defaultPhoto,
                 contentDescription = null,
-                modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.LightGray),
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, Color(0xFFE0E0E0), CircleShape),
                 contentScale = ContentScale.Crop,
-                placeholder = painterResource(R.drawable.default_pria),
-                error = painterResource(R.drawable.default_pria)
+                placeholder = painterResource(defaultPhoto),
+                error = painterResource(defaultPhoto)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(member.name, fontWeight = FontWeight.Bold)
-                Text(member.nim, fontSize = 12.sp, color = Color.Gray)
-                // Ubah tampilan enum agar lebih rapi (misal: ILMU_HUKUM -> Ilmu Hukum)
-                val majorDisplay = member.major.replace("_", " ").lowercase().capitalize(Locale.ROOT)
-                Text("${member.faculty} - $majorDisplay", fontSize = 12.sp, color = Color.Gray)
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Info Section
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = member.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = member.nim,
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // Faculty Badge
+                val facultyEnum = try {
+                    Faculty.valueOf(member.faculty.uppercase())
+                } catch (e: Exception) {
+                    Faculty.HUKUM
+                }
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = facultyEnum.getBadgeColor().copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = member.faculty.replace("_", " "),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = facultyEnum.getBadgeColor()
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Action Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Edit Button
+                IconButton(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFFFF59D), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFFF57C00)
+                    )
+                }
+                
+                // Delete Button  
+                IconButton(
+                    onClick = {  },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFFFCDD2), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFFD32F2F)
+                    )
+                }
             }
         }
     }
@@ -428,13 +553,19 @@ fun MemberDetailView(member: MemberApi, onEdit: () -> Unit, onDelete: () -> Unit
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Determine default photo based on gender
+        val defaultPhoto = try {
+            if (member.gender.uppercase() == "LAKI_LAKI") R.drawable.default_pria else R.drawable.default_wanita
+        } catch (e: Exception) {
+            R.drawable.default_pria
+        }
         AsyncImage(
-            model = member.photoUrl ?: R.drawable.default_pria,
+            model = member.photoUrl ?: defaultPhoto,
             contentDescription = null,
             modifier = Modifier.size(120.dp).clip(CircleShape).background(Color.LightGray),
             contentScale = ContentScale.Crop,
-            placeholder = painterResource(R.drawable.default_pria),
-            error = painterResource(R.drawable.default_pria)
+            placeholder = painterResource(defaultPhoto),
+            error = painterResource(defaultPhoto)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -514,17 +645,29 @@ fun AddEditMemberView(
         if (success) tempUri?.let { onPhotoPathChange(saveImageToInternalStorage(context, it, "member_cam")) }
     }
 
+    // Filter majors based on selected faculty
+    val availableMajors = remember(faculty) { faculty.getMajors() }
+
+    // Auto-reset major when faculty changes if current major is not in the new faculty's majors
+    LaunchedEffect(faculty) {
+        if (major !in faculty.getMajors()) {
+            onMajorChange(faculty.getMajors().first())
+        }
+    }
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(Color.LightGray).clickable { showImageSourceDialog = true }, contentAlignment = Alignment.Center) {
-                val model = if (photoPath.isNotEmpty()) File(photoPath) else photoUrl ?: R.drawable.default_pria
+                // Determine default photo based on gender
+                val defaultPhoto = if (gender == Gender.LAKI_LAKI) R.drawable.default_pria else R.drawable.default_wanita
+                val model = if (photoPath.isNotEmpty()) File(photoPath) else photoUrl ?: defaultPhoto
                 AsyncImage(
                     model = model,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    placeholder = painterResource(R.drawable.default_pria),
-                    error = painterResource(R.drawable.default_pria)
+                    placeholder = painterResource(defaultPhoto),
+                    error = painterResource(defaultPhoto)
                 )
             }
             TextButton(onClick = { showImageSourceDialog = true }) {
@@ -548,16 +691,42 @@ fun AddEditMemberView(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Dropdown Gender
-            ExposedDropdownMenuBox(expanded = genderExpanded, onExpandedChange = { genderExpanded = !genderExpanded }) {
-                OutlinedTextField(
-                    value = gender.name.replace("_", " "), onValueChange = {}, readOnly = true, label = { Text("Jenis Kelamin *") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
-                )
-                ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
-                    Gender.values().forEach { item ->
-                        DropdownMenuItem(text = { Text(item.name.replace("_", " ")) }, onClick = { onGenderChange(item); genderExpanded = false })
+            // Radio Button Gender
+            Text("Jenis Kelamin *", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Gender.values().forEach { genderOption ->
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(
+                                width = 1.dp,
+                                color = if (gender == genderOption) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .background(
+                                if (gender == genderOption) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
+                            )
+                            .clickable { onGenderChange(genderOption) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = gender == genderOption,
+                            onClick = { onGenderChange(genderOption) },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = genderOption.name.replace("_", " "),
+                            fontSize = 14.sp,
+                            color = if (gender == genderOption) MaterialTheme.colorScheme.primary else Color.Gray
+                        )
                     }
                 }
             }
@@ -586,7 +755,7 @@ fun AddEditMemberView(
                     modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
                 ExposedDropdownMenu(expanded = majorExpanded, onDismissRequest = { majorExpanded = false }) {
-                    Major.values().forEach { item ->
+                    availableMajors.forEach { item ->
                         DropdownMenuItem(text = { Text(item.name.replace("_", " ")) }, onClick = { onMajorChange(item); majorExpanded = false })
                     }
                 }

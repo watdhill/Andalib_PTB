@@ -160,7 +160,7 @@ fun AppBarHeader(
 ) {
     TopAppBar(
         title = { Text(text = title, color = MaterialTheme.colorScheme.onPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondary),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = BlueDark),
         navigationIcon = {
             if (onBackClick != null) {
                 IconButton(onClick = onBackClick) {
