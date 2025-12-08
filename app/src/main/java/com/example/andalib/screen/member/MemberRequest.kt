@@ -1,0 +1,86 @@
+package com.example.andalib.screen.member
+
+enum class Gender {
+    LAKI_LAKI,
+    PEREMPUAN
+}
+
+enum  class Faculty {
+    HUKUM,
+    PERTANIAN,
+    KEDOKTERAN,
+    MIPA,
+    EKONOMI_BISNIS,
+    PETERNAKAN,
+    ILMU_BUDAYA,
+    FISIP,
+    TEKNIK,
+    FARMASI,
+    TEKNOLOGI_PERTANIAN,
+    KESEHATAN_MASYARAKAT,
+    KEPERAWATAN,
+    KEDOKTERAN_GIGI,
+    TEKNOLOGI_INFORMASI
+}
+
+enum class Major {
+    ILMU_HUKUM,
+    AGRIBISNIS,
+    AGROTEKNOLOGI,
+    ILMU_TANAH,
+    PROTEKSI_TANAMAN,
+    PENYULUHAN_PERTANIAN,
+    AGROEKOTEKNOLOGI,
+    PENDIDIKAN_DOKTER,
+    KEBIDANAN,
+    PSIKOLOGI,
+    ILMU_BIOMEDIS,
+    KIMIA,
+    BIOLOGI,
+    MATEMATIKA,
+    FISIKA,
+    EKONOMI,
+    MANAJEMEN,
+    AKUNTANSI,
+    PETERNAKAN,
+    ILMU_SEJARAH,
+    SASTRA_INGGRIS,
+    SASTRA_INDONESIA,
+    SASTRA_MINANGKABAU,
+    SASTRA_JEPANG,
+    ILMU_POLITIK,
+    SOSIOLOGI,
+    ANTROPOLOGI_SOSIAL,
+    ILMU_HUBUNGAN_INTERNASIONAL,
+    ILMU_KOMUNIKASI,
+    ADMINISTRASI_PUBLIK,
+    TEKNIK_MESIN,
+    TEKNIK_SIPIL,
+    TEKNIK_LINGKUNGAN,
+    TEKNIK_INDUSTRI,
+    TEKNIK_ELEKTRO,
+    FARMASI,
+    TEKNOLOGI_PANGAN_HASIL_PERTANIAN,
+    TEKNIK_PERTANIAN_BIOSISTEM,
+    TEKNOLOGI_INDUSTRI_PERTANIAN,
+    KESEHATAN_MASYARAKAT,
+    GIZI,
+    KEPERAWATAN,
+    PENDIDIKAN_DOKTER_GIGI,
+    SISTEM_INFORMASI,
+    INFORMATIKA,
+    TEKNIK_KOMPUTER
+}
+
+data class MemberRequest(
+    val id: Int = 0,
+    val name: String,
+    val nim: String,
+    val gender: Gender,
+    val faculty: Faculty,
+    val major: Major,
+    val contact: String,
+    val email: String = "",
+    val photoPath: String = "",
+    val registrationDate: String = ""
+)

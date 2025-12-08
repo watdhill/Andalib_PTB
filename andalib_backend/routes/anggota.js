@@ -1,27 +1,60 @@
-// routes/anggota.js
 const express = require('express');
-const { authenticateToken, isAdmin } = require('../middlewares/authMiddleware');
-const { createAnggota, getAllAnggota, getAnggotaById, updateAnggota, deleteAnggota } = require('../controllers/anggotaController');
-
 const router = express.Router();
+const anggotaController = require('../controllers/anggotaController');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// Semua rute ini memerlukan Admin yang terautentikasi
-router.use(authenticateToken, isAdmin);
+// --- KONFIGURASI MULTER (UPLOAD) ---
+// Pastikan folder uploads tersedia
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
-// CREATE (Menambahkan Anggota)
-router.post('/', createAnggota);
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        // Nama file unik: nim-timestamp.ext (contoh: 12345-168000.jpg)
+        // Jika NIM belum ada di body (saat update), pakai 'temp'
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'member-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
 
-// READ (Mendapatkan Semua Anggota)
-router.get('/', getAllAnggota);
+const fileFilter = (req, file, cb) => {
+    // Terima hanya gambar
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Hanya file gambar yang diperbolehkan!'), false);
+    }
+};
 
-// READ (Mendapatkan Detail Anggota)
-router.get('/:id', getAnggotaById);
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limit 5MB
+    fileFilter: fileFilter
+});
 
-// UPDATE (Mengubah Anggota)
-router.put('/:id', updateAnggota);
-// atau router.patch('/:id', updateAnggota);
+// --- ROUTES API ---
 
-// DELETE (Menghapus Anggota)
-router.delete('/:id', deleteAnggota);
+// GET: Ambil semua anggota
+router.get('/', anggotaController.getAllAnggota);
+
+// GET: Ambil detail anggota by NIM
+//router.get('/:targetNim', anggotaController.getAnggotaByNim);
+
+// POST: Tambah anggota baru (dengan upload foto 'photo')
+// Sesuai Android: @Part photo: MultipartBody.Part
+router.post('/', upload.single('photo'), anggotaController.createAnggota);
+
+// PUT: Update anggota (dengan upload foto 'photo' opsional)
+router.put('/:targetNim', upload.single('photo'), anggotaController.updateAnggota);
+
+// DELETE: Hapus anggota
+router.delete('/:targetNim', anggotaController.deleteAnggota);
 
 module.exports = router;
