@@ -5,7 +5,6 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const anggotaRoutes = require('./routes/anggota');
-const returnRoutes = require('./routes/return');
 
 dotenv.config();
 
@@ -22,7 +21,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes); // /api/auth/login, /api/auth/register
 app.use('/api/admin', adminRoutes); // Route khusus untuk Admin (sudah dilindungi)
 app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
-app.use('/api/returns', returnRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
