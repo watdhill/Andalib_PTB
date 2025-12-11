@@ -1,6 +1,31 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Paling atas file returnController.js
+function parseTanggalIndonesia(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date();
+  }
+
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) {
+    // fallback kalau format aneh
+    return new Date(dateStr);
+  }
+
+  const [dd, MM, yyyy] = parts;
+  const day = Number(dd);
+  const month = Number(MM) - 1;
+  const year = Number(yyyy);
+
+  if (isNaN(day) || isNaN(month) || isNaN(year)) {
+    return new Date(dateStr);
+  }
+
+  // PENTING: pakai UTC supaya tidak geser hari
+  return new Date(Date.UTC(year, month, day, 0, 0, 0));
+}
+
 // [1] Cari Anggota berdasarkan Nama atau NIM
 exports.searchMembers = async (req, res) => {
   const { query } = req.query; 
@@ -96,37 +121,32 @@ exports.getActiveBorrowings = async (req, res) => {
 
 // [3] Proses Pengembalian (Create Return)
 exports.createReturn = async (req, res) => {
-  // Ambil semua data dari body request
   const { 
     peminjamanId, 
     tanggalPengembalian, 
     denda,
-    // >>> FIELD BARU DARI FRONTEND <<<
-    buktiKerusakanUrl, // Opsional
-    keterangan         // Opsional
-    // ----------------------------------
+    buktiKerusakanUrl,
+    keterangan
   } = req.body;
 
-  // Cek ID Peminjaman harus ada
   if (!peminjamanId) {
      return res.status(400).json({ success: false, message: 'ID Peminjaman tidak boleh kosong.' });
   }
 
   try {
-    // Gunakan Transaction untuk memastikan konsistensi (Buat Pengembalian & Update Stok & Status)
     const result = await prisma.$transaction(async (tx) => {
-      
       const pId = parseInt(peminjamanId);
       const loanDenda = parseInt(denda || 0);
 
-      // 1. Buat record di tabel Pengembalian
+      const parsedTanggal = parseTanggalIndonesia(tanggalPengembalian);
+
       const newReturn = await tx.pengembalian.create({
         data: {
           peminjamanId: pId,
-          tanggalPengembalian: new Date(tanggalPengembalian),
+          tanggalPengembalian: parsedTanggal,
           denda: loanDenda,
-          buktiKerusakanUrl: buktiKerusakanUrl || null, // <<< Menerima data opsional
-          keterangan: keterangan || null,               // <<< Menerima data opsional
+          buktiKerusakanUrl: buktiKerusakanUrl || null,
+          keterangan: keterangan || null,
         }
       });
 
@@ -204,35 +224,84 @@ exports.getReturnHistory = async (req, res) => {
   }
 };
 
+// controllers/returnController.js
+
 exports.deleteReturn = async (req, res) => {
   const { id } = req.params;
   const returnId = parseInt(id, 10);
 
   if (isNaN(returnId)) {
-    return res.status(400).json({ success: false, message: "ID tidak valid" });
+    return res.status(400).json({
+      success: false,
+      message: 'ID pengembalian tidak valid',
+    });
   }
 
   try {
-    const existing = await prisma.pengembalian.findUnique({
-      where: { id: returnId }
+    await prisma.$transaction(async (tx) => {
+      // 1. Ambil data pengembalian + peminjaman terkait
+      const pengembalian = await tx.pengembalian.findUnique({
+        where: { id: returnId },
+        include: {
+          peminjaman: true, // supaya dapat bukuId & status
+        },
+      });
+
+      if (!pengembalian) {
+        throw new Error(`Pengembalian dengan ID ${returnId} tidak ditemukan`);
+      }
+
+      const peminjaman = pengembalian.peminjaman;
+
+      if (!peminjaman) {
+        throw new Error(
+          `Relasi peminjaman untuk pengembalian ID ${returnId} tidak ditemukan`
+        );
+      }
+
+      // 2. Kalau status peminjaman sudah DIKEMBALIKAN, rollback lagi ke DIPINJAM
+      //    dan stok buku dikurangi 1 (balik ke kondisi sebelum dikembalikan)
+      if (peminjaman.status === 'DIKEMBALIKAN') {
+        // Kurangi stok buku, tapi jangan sampai negatif
+        await tx.buku.update({
+          where: { id: peminjaman.bukuId },
+          data: {
+            stok: {
+              decrement: 1,
+            },
+          },
+        });
+
+        await tx.peminjaman.update({
+          where: { id: peminjaman.id },
+          data: {
+            status: 'DIPINJAM',
+          },
+        });
+      }
+
+      // 3. Hapus record pengembalian
+      await tx.pengembalian.delete({
+        where: { id: returnId },
+      });
     });
 
-    if (!existing) {
-      return res.status(404).json({ success: false, message: "Data pengembalian tidak ditemukan" });
-    }
-
-    await prisma.pengembalian.delete({
-      where: { id: returnId }
+    res.json({
+      success: true,
+      message:
+        'Data pengembalian berhasil dihapus. Status peminjaman dan stok buku sudah dikembalikan seperti semula.',
     });
-
-    return res.json({ success: true, message: "Pengembalian berhasil dihapus" });
   } catch (error) {
-    console.error("Error deleteReturn:", error);
-    return res.status(500).json({ success: false, message: "Gagal menghapus pengembalian" });
+    console.error('Error deleteReturn:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus pengembalian',
+      detail: error.message,
+    });
   }
 };
 
-// [6] Update data pengembalian
+
 exports.updateReturn = async (req, res) => {
   const { returnId } = req.params;
   const {
@@ -252,11 +321,15 @@ exports.updateReturn = async (req, res) => {
   }
 
   try {
-    // Konversi "dd/MM/yyyy" ke Date
     let tanggalJs;
+
     if (tanggalPengembalian) {
       const [dd, mm, yyyy] = tanggalPengembalian.split("/");
-      tanggalJs = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`);
+      const day = Number(dd);
+      const month = Number(mm) - 1;
+      const year = Number(yyyy);
+
+      tanggalJs = new Date(Date.UTC(year, month, day, 0, 0, 0));
     } else {
       tanggalJs = new Date();
     }

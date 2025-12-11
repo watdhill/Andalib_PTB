@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
@@ -60,6 +59,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+
 
 // =========================================================
 // 1. TEMA DAN KONSTANTA
@@ -448,12 +450,17 @@ fun DataRow(label: String, value: String) {
 }
 
 @Composable
-fun UploadProofSection(onUploadClick: () -> Unit, proofUri: Uri?, proofFileName: String?) {
+fun UploadProofSection(
+    onUploadClick: () -> Unit,
+    proofUri: Uri?,
+    proofFileName: String?
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text("Bukti Kerusakan (Opsional)", fontWeight = FontWeight.SemiBold)
+
         Button(
             onClick = onUploadClick,
             modifier = Modifier.fillMaxWidth(),
@@ -478,24 +485,23 @@ fun UploadProofSection(onUploadClick: () -> Unit, proofUri: Uri?, proofFileName:
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .border(
                             1.dp,
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(8.dp)
-                        )
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            RoundedCornerShape(12.dp)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Filled.Image,
-                        contentDescription = "Bukti",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(48.dp)
+                    AsyncImage(
+                        model = proofUri,
+                        contentDescription = "Bukti kerusakan",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "File terpilih: ${proofFileName ?: proofUri.lastPathSegment}",
                     style = MaterialTheme.typography.bodySmall,
@@ -505,6 +511,7 @@ fun UploadProofSection(onUploadClick: () -> Unit, proofUri: Uri?, proofFileName:
         }
     }
 }
+
 
 @Composable
 fun StatusSelection(
@@ -683,38 +690,96 @@ fun DeleteConfirmationDialog(
 }
 
 @Composable
-fun SuccessNotification() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            Icons.Filled.CheckCircle,
-            contentDescription = "Sukses",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            "Data berhasil ditambahkan",
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
+fun ReturnSuccessDialog(
+    onDismiss: () -> Unit,
+    onOk: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(FineGreen.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Berhasil",
+                    tint = FineGreen,
+                    modifier = Modifier.size(42.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Berhasil",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Text(
+                text = "Berhasil menambah pengembalian.",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Button(
+                    onClick = onOk,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("OK", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {}
+    )
 }
 
+
 @Composable
-fun MemberCard(member: Member, onClick: (Member) -> Unit) {
+fun MemberCard(
+    member: Member,
+    isSelected: Boolean,
+    onClick: (Member) -> Unit
+) {
+    val borderColor =
+        if (isSelected) MaterialTheme.colorScheme.primary
+        else Color.Transparent
+
+    val bgColor =
+        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        else MaterialTheme.colorScheme.surfaceVariant
+
+    val nameColor =
+        if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick(member) },
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = BorderStroke(1.5.dp, borderColor),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 4.dp else 0.dp
+        )
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -724,34 +789,64 @@ fun MemberCard(member: Member, onClick: (Member) -> Unit) {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Gray.copy(alpha = 0.2f)),
+                    .background(
+                        if (isSelected)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            Color.Gray.copy(alpha = 0.2f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(member.name.first().toString(), fontWeight = FontWeight.Bold)
+                Text(
+                    member.name.first().toString(),
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.Black
+                )
             }
+
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(member.name, fontWeight = FontWeight.SemiBold)
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    member.name,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = nameColor
+                )
                 Text(
                     "NIM: ${member.nim} | ${member.email}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             }
-            Spacer(modifier = Modifier.width(12.dp))
+
             Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = "Pilih",
-                modifier = Modifier
-                    .size(16.dp)
-                    .align(Alignment.CenterVertically)
+                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.ArrowForwardIos,
+                contentDescription = null,
+                tint = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                modifier = Modifier.size(18.dp)
             )
         }
     }
 }
 
+
 @Composable
-fun BorrowingCard(borrowing: ActiveBorrowing, onClick: (ActiveBorrowing) -> Unit) {
+fun BorrowingCard(
+    borrowing: ActiveBorrowing,
+    isSelected: Boolean,
+    onClick: (ActiveBorrowing) -> Unit
+) {
+    val borderColor =
+        if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+    val bgColor =
+        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+        else MaterialTheme.colorScheme.background
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -759,13 +854,9 @@ fun BorrowingCard(borrowing: ActiveBorrowing, onClick: (ActiveBorrowing) -> Unit
                 interactionSource = remember { NoRippleInteractionSource() },
                 indication = null
             ) { onClick(borrowing) }
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                RoundedCornerShape(8.dp)
-            ),
+            .border(1.5.dp, borderColor, RoundedCornerShape(8.dp)),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
+        colors = CardDefaults.cardColors(containerColor = bgColor)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -775,14 +866,17 @@ fun BorrowingCard(borrowing: ActiveBorrowing, onClick: (ActiveBorrowing) -> Unit
             ) {
                 Text(
                     borrowing.book.title,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                     fontSize = 16.sp,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = "Pilih",
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Dipilih",
+                    tint = if (isSelected)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                 )
             }
             Text(
@@ -796,7 +890,6 @@ fun BorrowingCard(borrowing: ActiveBorrowing, onClick: (ActiveBorrowing) -> Unit
         }
     }
 }
-
 @Composable
 fun DatePickerFields(
     borrowDate: String,
@@ -1119,7 +1212,8 @@ private fun ReturnAddContent(
 
     var searchQuery by remember { mutableStateOf("") }
     var searchJob by remember { mutableStateOf<Job?>(null) }
-    var showSuccess by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var pendingNewItem by remember { mutableStateOf<ReturnHistoryItem?>(null) }
 
     var filteredMembers by remember { mutableStateOf<List<Member>>(emptyList()) }
     var isLoadingMembers by remember { mutableStateOf(false) }
@@ -1211,10 +1305,7 @@ private fun ReturnAddContent(
 
     // 3. SUBMIT PENGEMBALIAN
     val handleSubmit: () -> Unit = handleSubmit@{
-        // Pastikan member & borrowing sudah dipilih
-        if (selectedBorrowing == null || selectedMember == null) {
-            return@handleSubmit
-        }
+        if (selectedBorrowing == null || selectedMember == null) return@handleSubmit
 
         val finalDueDate = selectedBorrowing!!.dueDate
         val finalBorrowDate = selectedBorrowing!!.borrowDate
@@ -1247,17 +1338,19 @@ private fun ReturnAddContent(
                         keterangan = description.takeIf { it.isNotBlank() },
                         proofUriString = proofUri?.toString()
                     )
-                    onDataAdded(newItem)
-                    showSuccess = true
+
+                    // SIMPAN dulu itemnya → nanti dikirim ke list saat user tekan OK di dialog
+                    pendingNewItem = newItem
+                    showSuccessDialog = true
                 } else {
                     Log.e("ReturnAddContent", "Submit gagal: ${response.message}")
                 }
+
             } catch (e: Exception) {
                 Log.e("ReturnAddContent", "Error submit pengembalian: ${e.message}")
             }
         }
     }
-
 
     Scaffold(
         topBar = { AppBarHeader(title = "Tambah Pengembalian", onBackClick = onBackClick) },
@@ -1287,9 +1380,6 @@ private fun ReturnAddContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (showSuccess) {
-                item { SuccessNotification() }
-            }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1310,7 +1400,11 @@ private fun ReturnAddContent(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 8.dp)
                     )
-                    MemberCard(selectedMember!!) {
+                    MemberCard(
+                        member = selectedMember!!,
+                        isSelected = true
+                    ) {
+                        // klik lagi untuk batal pilih
                         selectedMember = null
                         selectedBorrowing = null
                     }
@@ -1338,9 +1432,12 @@ private fun ReturnAddContent(
                     }
                 } else {
                     items(filteredMembers) { member ->
-                        MemberCard(member = member) {
+                        MemberCard(
+                            member = member,
+                            isSelected = selectedMember?.nim == member.nim
+                        ) {
                             selectedMember = it
-                            searchQuery = ""
+                            searchQuery = "" // Kosongkan pencarian setelah memilih
                         }
                     }
                 }
@@ -1381,15 +1478,19 @@ private fun ReturnAddContent(
                     }
 
                     selectedBorrowing != null -> {
-                        BorrowingCard(selectedBorrowing!!) { selectedBorrowing = null }
+                        BorrowingCard(
+                            borrowing = selectedBorrowing!!,
+                            isSelected = true
+                        ) { selectedBorrowing = null }
                     }
 
-                    else -> {
+                        else -> {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             availableBorrowings.forEach { borrowing ->
-                                BorrowingCard(borrowing = borrowing) {
-                                    selectedBorrowing = it
-                                }
+                                BorrowingCard(
+                                    borrowing = borrowing,
+                                    isSelected = selectedBorrowing?.borrowingId == borrowing.borrowingId
+                                ) { selectedBorrowing = it }
                             }
                         }
                     }
@@ -1455,6 +1556,17 @@ private fun ReturnAddContent(
                 Spacer(modifier = Modifier.height(60.dp))
             }
         }
+    }
+
+    if (showSuccessDialog) {
+        ReturnSuccessDialog(
+            onDismiss = { showSuccessDialog = false },
+            onOk = {
+                showSuccessDialog = false
+                pendingNewItem?.let { onDataAdded(it) }   // tambah ke list + kembali ke halaman sebelumnya
+                pendingNewItem = null
+            }
+        )
     }
 
     if (datePickerTarget != null) {

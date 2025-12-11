@@ -43,10 +43,6 @@ data class AnggotaResponse(
 )
 
 // Model respons status sederhana - TIDAK BERUBAH
-data class ReturnStatusResponse(
-    val success: Boolean,
-    val message: String? = null
-)
 data class ReturnHistoryResponse(
     val id: Int,
     val peminjamanId: Int,
@@ -61,9 +57,19 @@ data class ReturnHistoryResponse(
     val buktiKerusakanUrl: String?
 )
 
-data class SimpleResponse(
+data class ReturnStatusResponse(
     val success: Boolean,
-    val message: String?
+    val message: String? = null,
+    val data: ReturnCreatedResponse? = null
+)
+
+data class ReturnCreatedResponse(
+    val id: Int,
+    val peminjamanId: Int,
+    val tanggalPengembalian: String,
+    val denda: Int,
+    val keterangan: String?,
+    val buktiKerusakanUrl: String?
 )
 
 // =========================================================
@@ -105,5 +111,5 @@ interface ApiService {
     suspend fun updateReturn(@Path("returnId") returnId: String, @Body request: ReturnRequest): ReturnStatusResponse
 
     @DELETE("returns/history/{id}")
-    suspend fun deleteReturn(@Path("id") id: Int): SimpleResponse
+    suspend fun deleteReturn(@Path("id") id: Int): ReturnStatusResponse
 }
