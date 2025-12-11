@@ -84,6 +84,5 @@ dependencies {
     // Compose Navigation & ViewModel
     implementation ("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
-    // UI (untuk dialog loading)
-    implementation ("androidx.compose.material3:material3")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
