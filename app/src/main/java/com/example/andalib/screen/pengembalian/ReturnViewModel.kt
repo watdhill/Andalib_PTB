@@ -1,79 +1,85 @@
-package com.example.andalib.screen.Return
-
+package com.example.andalib.screen.pengembalian
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+// Impor yang diperlukan, termasuk ApiService yang baru
 import com.example.andalib.data.network.ApiService
 import com.example.andalib.data.network.ReturnRequest
-import com.example.andalib.screen.AnggotaUI
-import com.example.andalib.screen.PeminjamanUI
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+// =========================================================
+// 1. UI MODEL DEFINITIONS (Tidak ada perubahan di sini)
+// =========================================================
+
+data class AnggotaUI(val nim: String, val nama: String, val email: String?)
+
+data class PeminjamanUI(
+    val id: Int,
+    val judulBuku: String,
+    val author: String,
+    val tglPinjam: String,
+    val jatuhTempo: String
+)
+
+// =========================================================
+// 2. VIEWMODEL IMPLEMENTATION (Dengan Perbaikan)
+// =========================================================
 
 class ReturnViewModel(
-    // ApiService harus di-inject (disediakan) saat ViewModel dibuat.
-    private val apiService: ApiService
+    // === PERBAIKAN UTAMA ADA DI SINI ===
+    private val apiService: ApiService // Tipe diubah dari String ke ApiService
 ) : ViewModel() {
 
-    // Daftar anggota dummy (allMembers) telah dihapus
+    // ---------------------- STATE FLOWS ----------------------
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // StateFlow untuk daftar hasil pencarian anggota
     private val _memberSearchResults = MutableStateFlow<List<AnggotaUI>>(emptyList())
     val memberSearchResults: StateFlow<List<AnggotaUI>> = _memberSearchResults.asStateFlow()
 
-    // StateFlow untuk Anggota yang dipilih
     private val _selectedMember = MutableStateFlow<AnggotaUI?>(null)
     val selectedMember: StateFlow<AnggotaUI?> = _selectedMember.asStateFlow()
 
-    // StateFlow untuk Daftar Pinjaman Aktif anggota yang dipilih
     private val _activeLoans = MutableStateFlow<List<PeminjamanUI>>(emptyList())
     val activeLoans: StateFlow<List<PeminjamanUI>> = _activeLoans.asStateFlow()
 
-    // StateFlow untuk status loading API
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // StateFlow untuk Hasil Submit/Update API (true: sukses, false: gagal, null: idle)
     private val _transactionStatus = MutableStateFlow<Boolean?>(null)
     val transactionStatus: StateFlow<Boolean?> = _transactionStatus.asStateFlow()
 
+    // ---------------------- INITIALIZATION ----------------------
 
-    /**
-     * Memanggil API untuk mencari daftar anggota berdasarkan query.
-     */
-    fun searchMembers(query: String) {
-        if (query.length < 2) {
-            _memberSearchResults.value = emptyList()
-            return
-        }
+    init {
         viewModelScope.launch {
-            _isLoading.update { true }
-            try {
-                // Panggil API searchMembers, lalu mapping ke AnggotaUI
-                val results = apiService.searchMembers(query).map {
-                    AnggotaUI(it.nim, it.nama)
+            _searchQuery
+                .debounce(500L)
+                .collect { query ->
+                    if (query.length >= 1) {
+                        searchMembers(query)
+                    } else if (query.isEmpty() && _memberSearchResults.value.isNotEmpty()) {
+                        _memberSearchResults.value = emptyList()
+                    }
                 }
-                _memberSearchResults.value = results
-            } catch (e: Exception) {
-                // Handle error (misalnya: tampilkan pesan error)
-                _memberSearchResults.value = emptyList()
-            } finally {
-                _isLoading.update { false }
-            }
         }
     }
 
+    // ---------------------- PUBLIC METHODS ----------------------
 
-    /**
-     * Mengatur anggota yang dipilih dan memicu pengambilan daftar pinjaman aktif.
-     */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
     fun setSelectedMember(member: AnggotaUI?) {
         _selectedMember.value = member
-        _memberSearchResults.value = emptyList() // Hapus hasil pencarian setelah dipilih
+        _memberSearchResults.value = emptyList()
+        _searchQuery.value = member?.let { "${it.nama} (${it.nim})" } ?: ""
 
         if (member != null) {
             fetchActiveLoans(member.nim)
@@ -82,36 +88,25 @@ class ReturnViewModel(
         }
     }
 
-    /**
-     * Memanggil API untuk mengambil daftar pinjaman aktif berdasarkan NIM.
-     */
-    private fun fetchActiveLoans(nim: String) {
-        viewModelScope.launch {
-            _isLoading.update { true }
-            _activeLoans.value = emptyList()
-            try {
-                // Panggil API fetchActiveLoans, lalu mapping ke PeminjamanUI
-                val loans = apiService.fetchActiveLoans(nim).map {
-                    PeminjamanUI(it.id, it.judulBuku, it.tglPinjam, it.jatuhTempo)
-                }
-                _activeLoans.value = loans
-            } catch (e: Exception) {
-                // Handle error
-                _activeLoans.value = emptyList()
-            } finally {
-                _isLoading.update { false }
-            }
-        }
-    }
-
-    /**
-     * Mengirim data pengembalian ke server.
-     */
-    fun submitReturn(request: ReturnRequest) {
+    fun submitReturn(
+        peminjamanId: Int,
+        returnDate: String,
+        fineAmount: Int,
+        description: String,
+        proofUriString: String?
+    ) {
         viewModelScope.launch {
             _isLoading.update { true }
             _transactionStatus.value = null
             try {
+                val request = ReturnRequest(
+                    peminjamanId = peminjamanId,
+                    tanggalPengembalian = returnDate,
+                    denda = fineAmount,
+                    keterangan = description.takeIf { it.isNotBlank() },
+                    buktiKerusakanUrl = proofUriString
+                )
+                // Sekarang pemanggilan ini valid
                 val response = apiService.submitReturn(request)
                 _transactionStatus.value = response.success
             } catch (e: Exception) {
@@ -122,14 +117,26 @@ class ReturnViewModel(
         }
     }
 
-    /**
-     * Mengirim data update pengembalian ke server.
-     */
-    fun updateReturn(returnId: String, request: ReturnRequest) {
+    fun updateReturn(
+        returnId: String,
+        peminjamanId: Int,
+        returnDate: String,
+        fineAmount: Int,
+        description: String,
+        proofUriString: String?
+    ) {
         viewModelScope.launch {
             _isLoading.update { true }
             _transactionStatus.value = null
             try {
+                val request = ReturnRequest(
+                    peminjamanId = peminjamanId,
+                    tanggalPengembalian = returnDate,
+                    denda = fineAmount,
+                    keterangan = description.takeIf { it.isNotBlank() },
+                    buktiKerusakanUrl = proofUriString
+                )
+                // Sekarang pemanggilan ini valid
                 val response = apiService.updateReturn(returnId, request)
                 _transactionStatus.value = response.success
             } catch (e: Exception) {
@@ -140,10 +147,44 @@ class ReturnViewModel(
         }
     }
 
-    /**
-     * Mereset status transaksi setelah notifikasi ditampilkan.
-     */
     fun resetTransactionStatus() {
         _transactionStatus.value = null
+    }
+
+    // ---------------------- PRIVATE API CALLS ----------------------
+
+    private fun searchMembers(query: String) {
+        viewModelScope.launch {
+            _isLoading.update { true }
+            try {
+                // Sekarang pemanggilan ini valid
+                val results = apiService.searchMembers(query).map {
+                    AnggotaUI(it.nim, it.nama, it.email)
+                }
+                _memberSearchResults.value = results
+            } catch (e: Exception) {
+                _memberSearchResults.value = emptyList()
+            } finally {
+                _isLoading.update { false }
+            }
+        }
+    }
+
+    private fun fetchActiveLoans(nim: String) {
+        viewModelScope.launch {
+            _isLoading.update { true }
+            _activeLoans.value = emptyList()
+            try {
+                // Sekarang pemanggilan ini valid
+                val loans = apiService.fetchActiveLoans(nim).map {
+                    PeminjamanUI(it.id, it.judulBuku, it.author, it.tglPinjam, it.jatuhTempo)
+                }
+                _activeLoans.value = loans
+            } catch (e: Exception) {
+                _activeLoans.value = emptyList()
+            } finally {
+                _isLoading.update { false }
+            }
+        }
     }
 }
