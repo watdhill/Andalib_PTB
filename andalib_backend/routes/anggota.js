@@ -33,7 +33,7 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // Limit 5MB
     fileFilter: fileFilter
@@ -45,7 +45,7 @@ const upload = multer({
 router.get('/', anggotaController.getAllAnggota);
 
 // GET: Ambil detail anggota by NIM
-//router.get('/:targetNim', anggotaController.getAnggotaByNim);
+router.get('/:targetNim', anggotaController.getAnggotaByNim);
 
 // POST: Tambah anggota baru (dengan upload foto 'photo')
 // Sesuai Android: @Part photo: MultipartBody.Part
@@ -56,5 +56,8 @@ router.put('/:targetNim', upload.single('photo'), anggotaController.updateAnggot
 
 // DELETE: Hapus anggota
 router.delete('/:targetNim', anggotaController.deleteAnggota);
+
+// POST: Upload foto anggota (untuk update foto existing member)
+router.post('/:id/photo', upload.single('photo'), anggotaController.uploadMemberPhoto);
 
 module.exports = router;

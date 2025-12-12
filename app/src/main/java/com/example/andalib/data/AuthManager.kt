@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // Inisialisasi DataStore di tingkat aplikasi
@@ -30,5 +31,12 @@ class TokenManager(private val context: Context) {
         dataStore.edit { preferences ->
             preferences.remove(AUTH_TOKEN_KEY)
         }
+    }
+    
+    // Function untuk get token (digunakan oleh notification service)
+    suspend fun getToken(): String? {
+        return dataStore.data.map { preferences ->
+            preferences[AUTH_TOKEN_KEY]
+        }.first() // ✅ Ambil value pertama lalu selesai (tidak infinite loop)
     }
 }
