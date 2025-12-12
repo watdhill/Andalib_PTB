@@ -24,12 +24,24 @@ app.use('/api/admin', adminRoutes); // Route khusus untuk Admin (sudah dilindung
 app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
 app.use('/api/returns', returnsRoutes);
 
+// ========== NOTIFIKASI MEMBER: ROUTES ==========
+// Route untuk notifikasi penghapusan anggota
+const memberNotificationRoutes = require('./routes/memberNotification');
+app.use('/api/member-notifications', memberNotificationRoutes);
+
+// Cleanup scheduler untuk auto-delete notifikasi yang sudah dibaca > 2 menit
+const { startCleanupScheduler } = require('./utils/notificationCleanup');
+// ================================================
+
 // Basic route
 app.get('/', (req, res) => {
     res.send('Perpustakaan Backend API Running');
 });
 
 // Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
+
+    // ✅ Start notification cleanup scheduler
+    startCleanupScheduler();
 });

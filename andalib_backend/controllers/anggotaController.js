@@ -6,52 +6,37 @@ const prisma = new PrismaClient();
 
 // 1. Menambahkan Anggota Baru
 const createAnggota = async (req, res) => {
-    // Ambil data dari body
-    // Catatan: field 'email' dan 'photo' bersifat opsional sesuai permintaan
     const { nim, name, gender, faculty, major, contact, email } = req.body;
-    
-    // Ambil file foto jika ada
     const photoPath = req.file ? req.file.filename : null;
 
-    // VALIDASI: Semuanya wajib diisi KECUALI foto dan email
     if (!nim || !name || !gender || !faculty || !major || !contact) {
-        // Hapus foto jika validasi gagal agar tidak menumpuk sampah file
         if (req.file) fs.unlinkSync(req.file.path);
-        return res.status(400).json({ 
-            success: false, 
-            message: 'NIM, Nama, Gender, Fakultas, Jurusan, dan Kontak wajib diisi.' 
+        return res.status(400).json({
+            success: false,
+            message: 'NIM, Nama, Gender, Fakultas, Jurusan, dan Kontak wajib diisi.'
         });
     }
 
     try {
         const newAnggota = await prisma.anggota.create({
             data: {
-                nim: nim, // NIM adalah Primary Key (String)
-                name: name,
-                gender: gender,   // Harus sesuai ENUM: "LAKI_LAKI" atau "PEREMPUAN"
-                faculty: faculty, // Harus sesuai ENUM Faculty
-                major: major,     // Harus sesuai ENUM Major
-                contact: contact,
-                email: email, 
-                photoPath: photoPath,
+                nim, name, gender, faculty, major, contact, email,
+                photoPath
             },
         });
 
-        res.status(201).json({ 
+        res.status(201).json({
             success: true,
-            message: 'Anggota berhasil ditambahkan', 
-            data: newAnggota 
+            message: 'Anggota berhasil ditambahkan',
+            data: newAnggota
         });
     } catch (error) {
         console.error("Create Error:", error);
-        // Hapus foto jika database gagal
-        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); 
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-        // Error P2002: Unique constraint failed (NIM sudah ada)
         if (error.code === 'P2002') {
             return res.status(409).json({ success: false, message: 'NIM sudah terdaftar.' });
         }
-        // Error P2003: Foreign key constraint failed (jika Enum salah)
         res.status(500).json({ success: false, message: 'Gagal menambahkan anggota. Cek format data.' });
     }
 };
@@ -62,8 +47,7 @@ const getAllAnggota = async (req, res) => {
         const anggotaList = await prisma.anggota.findMany({
             orderBy: { name: 'asc' }
         });
-        
-        // Mapping URL foto agar bisa diakses Android
+
         const mappedList = anggotaList.map(member => ({
             ...member,
             photoUrl: member.photoPath ? `http://${req.headers.host}/uploads/${member.photoPath}` : null
@@ -78,32 +62,60 @@ const getAllAnggota = async (req, res) => {
     }
 };
 
+// 2b. Mendapatkan Detail Anggota Berdasarkan NIM
+const getAnggotaByNim = async (req, res) => {
+    const { targetNim } = req.params;
+
+    try {
+        const member = await prisma.anggota.findUnique({
+            where: { nim: targetNim }
+        });
+
+        if (!member) {
+            return res.status(404).json({
+                success: false,
+                message: 'Anggota tidak ditemukan.'
+            });
+        }
+
+        const memberWithPhotoUrl = {
+            ...member,
+            photoUrl: member.photoPath ? `http://${req.headers.host}/uploads/${member.photoPath}` : null
+        };
+
+        res.status(200).json({
+            success: true,
+            data: memberWithPhotoUrl
+        });
+    } catch (error) {
+        console.error("Get Anggota By NIM Error:", error);
+        res.status(500).json({
+            success: false,
+            message: 'Gagal mengambil data anggota.'
+        });
+    }
+};
+
 // 3. Mengubah Data Anggota (Berdasarkan NIM)
 const updateAnggota = async (req, res) => {
-    const { targetNim } = req.params; // NIM yang akan diedit (dikirim via URL)
+    const { targetNim } = req.params;
     const { name, gender, faculty, major, contact, email } = req.body;
     const newPhoto = req.file ? req.file.filename : undefined;
 
     try {
-        // Cari data lama untuk menghapus foto lama jika ada foto baru
-        const oldData = await prisma.anggota.findUnique({ 
-            where: { nim: targetNim } 
+        const oldData = await prisma.anggota.findUnique({
+            where: { nim: targetNim }
         });
 
         if (!oldData) return res.status(404).json({ success: false, message: 'Anggota tidak ditemukan.' });
 
         const updateData = {
-            name,
-            gender,
-            faculty,
-            major,
-            contact,
-            email: email || oldData.email // Keep old email if not provided
+            name, gender, faculty, major, contact,
+            email: email || oldData.email
         };
 
         if (newPhoto) {
             updateData.photoPath = newPhoto;
-            // Hapus file fisik lama
             if (oldData.photoPath) {
                 const oldPath = path.join(__dirname, '../uploads/', oldData.photoPath);
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
@@ -115,10 +127,10 @@ const updateAnggota = async (req, res) => {
             data: updateData,
         });
 
-        res.status(200).json({ 
+        res.status(200).json({
             success: true,
-            message: 'Data anggota berhasil diubah', 
-            data: updatedAnggota 
+            message: 'Data anggota berhasil diubah',
+            data: updatedAnggota
         });
     } catch (error) {
         console.error("Update Error:", error);
@@ -132,14 +144,13 @@ const deleteAnggota = async (req, res) => {
 
     try {
         const memberToDelete = await prisma.anggota.findUnique({ where: { nim: targetNim } });
-        
+
         if (!memberToDelete) return res.status(404).json({ success: false, message: 'Anggota tidak ditemukan.' });
 
-        // Cek Peminjaman aktif menggunakan relasi anggotaNim
         const activeBorrowings = await prisma.peminjaman.count({
-            where: { 
-                anggotaNim: targetNim, 
-                isReturned: false 
+            where: {
+                anggotaNim: targetNim,
+                status: 'DIPINJAM'
             },
         });
 
@@ -147,14 +158,51 @@ const deleteAnggota = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Anggota ini masih meminjam buku.' });
         }
 
-        // Hapus dari DB
         await prisma.anggota.delete({ where: { nim: targetNim } });
 
-        // Hapus File Foto
         if (memberToDelete.photoPath) {
             const filePath = path.join(__dirname, '../uploads/', memberToDelete.photoPath);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
+
+        // ========== NOTIFIKASI: CREATE NOTIFICATIONS ==========
+        console.log('🔔 Creating notifications...');
+        try {
+            const allAdmins = await prisma.admin.findMany({
+                select: { id: true, name: true }
+            });
+
+            const currentAdminId = req.user?.id || null;
+            const currentAdmin = currentAdminId ? await prisma.admin.findUnique({
+                where: { id: currentAdminId }
+            }) : null;
+
+            const adminName = currentAdmin?.name || 'Admin';
+            const metadata = JSON.stringify({
+                memberName: memberToDelete.name,
+                memberNim: memberToDelete.nim,
+                deletedBy: adminName,
+                deletedById: currentAdminId
+            });
+
+            const notificationPromises = allAdmins.map(admin =>
+                prisma.notification.create({
+                    data: {
+                        adminId: admin.id,
+                        type: 'MEMBER_DELETED',
+                        title: 'Admin menghapus anggota',
+                        message: `${memberToDelete.name} (${memberToDelete.nim})`,
+                        metadata: metadata
+                    }
+                })
+            );
+
+            await Promise.all(notificationPromises);
+            console.log(`✅ Created ${allAdmins.length} notifications`);
+        } catch (notifError) {
+            console.error('❌ Notification error:', notifError.message);
+        }
+        // ========== END NOTIFIKASI ==========
 
         res.status(200).json({ success: true, message: 'Anggota berhasil dihapus.' });
     } catch (error) {
@@ -163,4 +211,77 @@ const deleteAnggota = async (req, res) => {
     }
 };
 
-module.exports = { createAnggota, getAllAnggota, updateAnggota, deleteAnggota };
+// ============================================================
+// 6. Upload Member Photo
+// ============================================================
+const uploadMemberPhoto = async (req, res) => {
+    try {
+        const memberId = parseInt(req.params.id);
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        // Check if member exists
+        const member = await prisma.anggota.findUnique({
+            where: { id: memberId }
+        });
+
+        if (!member) {
+            // Delete uploaded file if member not found
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({
+                success: false,
+                message: 'Anggota tidak ditemukan'
+            });
+        }
+
+        // Delete old photo if exists
+        if (member.photoPath) {
+            const oldPhotoPath = path.join(__dirname, '..', 'uploads', member.photoPath);
+            if (fs.existsSync(oldPhotoPath)) {
+                fs.unlinkSync(oldPhotoPath);
+            }
+        }
+
+        // Update member with new photo
+        const photoPath = req.file.filename;
+        const updatedMember = await prisma.anggota.update({
+            where: { id: memberId },
+            data: { photoPath }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Foto berhasil diupload',
+            data: {
+                photoPath: photoPath,
+                photoUrl: `/uploads/${photoPath}`
+            }
+        });
+    } catch (error) {
+        console.error('Upload Photo Error:', error);
+
+        // Delete uploaded file on error
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Gagal mengupload foto'
+        });
+    }
+};
+
+module.exports = {
+    createAnggota,
+    getAllAnggota,
+    getAnggotaByNim,
+    updateAnggota,
+    deleteAnggota,
+    uploadMemberPhoto
+};

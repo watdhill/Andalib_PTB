@@ -1,5 +1,6 @@
 package com.example.andalib.screen.member
 
+import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -123,6 +124,16 @@ fun MembersScreen() {
         scope.launch {
             isLoading = true
             try {
+                // Check for duplicate NIM when adding new member
+                if (!isEdit) {
+                    val isDuplicate = members.any { it.nim == formNim }
+                    if (isDuplicate) {
+                        Toast.makeText(context, "NIM tersebut sudah terdaftar", Toast.LENGTH_SHORT).show()
+                        isLoading = false
+                        return@launch
+                    }
+                }
+                
                 val namePart = formName.toRequestBody("text/plain".toMediaTypeOrNull())
                 val nimPart = formNim.toRequestBody("text/plain".toMediaTypeOrNull())
                 val genderPart = formGender.name.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -225,14 +236,11 @@ fun MembersScreen() {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White)
                         }
                     }
-                },
-                actions = {
-                    // Actions removed - button now inside card
                 }
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier.padding(top = padding.calculateTopPadding())) {
             if (isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -275,6 +283,10 @@ fun MembersScreen() {
                             Log.e("MembersScreen", "Error selecting member", e)
                             Toast.makeText(context, "Gagal memuat detail anggota: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    onDeleteClick = { member ->
+                        selectedMember = member
+                        showDeleteDialog = true
                     },
                     onAddClick = { resetForm(); currentView = "add" }
                 )
@@ -348,6 +360,7 @@ fun MemberListView(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onMemberClick: (MemberApi) -> Unit,
+    onDeleteClick: (MemberApi) -> Unit,
     onAddClick: () -> Unit
 ) {
     Box(
@@ -389,7 +402,11 @@ fun MemberListView(
                         }
                     } else {
                         items(members) { member ->
-                            MemberItem(member, onClick = { onMemberClick(member) })
+                            MemberItem(
+                                member = member,
+                                onClick = { onMemberClick(member) },
+                                onDelete = { onDeleteClick(member) }
+                            )
                         }
                     }
                 }
@@ -414,7 +431,11 @@ fun MemberListView(
 }
 
 @Composable
-fun MemberItem(member: MemberApi, onClick: () -> Unit) {
+fun MemberItem(
+    member: MemberApi,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -507,7 +528,7 @@ fun MemberItem(member: MemberApi, onClick: () -> Unit) {
                 
                 // Delete Button  
                 IconButton(
-                    onClick = {  },
+                    onClick = onDelete,
                     modifier = Modifier
                         .size(36.dp)
                         .background(Color(0xFFFFCDD2), CircleShape)
@@ -644,6 +665,25 @@ fun AddEditMemberView(
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) tempUri?.let { onPhotoPathChange(saveImageToInternalStorage(context, it, "member_cam")) }
     }
+    
+    // ✅ Camera permission launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, launch camera
+            val uri = createImageFileUri(context)
+            if (uri != null) {
+                tempUri = uri
+                cameraLauncher.launch(uri)
+            } else {
+                Toast.makeText(context, "Gagal membuat file foto", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            // Permission denied
+            Toast.makeText(context, "Izin kamera diperlukan untuk mengambil foto", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Filter majors based on selected faculty
     val availableMajors = remember(faculty) { faculty.getMajors() }
@@ -676,7 +716,14 @@ fun AddEditMemberView(
             Spacer(Modifier.height(16.dp))
 
             // Input Nama
-            OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Nama Lengkap *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                label = { Text("Nama Lengkap *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp)
+            )
             Spacer(Modifier.height(8.dp))
 
             // Input NIM
@@ -687,7 +734,8 @@ fun AddEditMemberView(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                enabled = !isEdit // Biasanya NIM tidak boleh diubah saat edit
+                enabled = !isEdit, // Biasanya NIM tidak boleh diubah saat edit
+                shape = RoundedCornerShape(16.dp)
             )
             Spacer(Modifier.height(8.dp))
 
@@ -701,11 +749,11 @@ fun AddEditMemberView(
                     Row(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .border(
                                 width = 1.dp,
                                 color = if (gender == genderOption) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(16.dp)
                             )
                             .background(
                                 if (gender == genderOption) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
@@ -735,9 +783,13 @@ fun AddEditMemberView(
             // Dropdown Fakultas
             ExposedDropdownMenuBox(expanded = facultyExpanded, onExpandedChange = { facultyExpanded = !facultyExpanded }) {
                 OutlinedTextField(
-                    value = faculty.name.replace("_", " "), onValueChange = {}, readOnly = true, label = { Text("Fakultas *") },
+                    value = faculty.name.replace("_", " "),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Fakultas *") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = facultyExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(16.dp)
                 )
                 ExposedDropdownMenu(expanded = facultyExpanded, onDismissRequest = { facultyExpanded = false }) {
                     Faculty.values().forEach { item ->
@@ -750,9 +802,13 @@ fun AddEditMemberView(
             // Dropdown Jurusan (Major)
             ExposedDropdownMenuBox(expanded = majorExpanded, onExpandedChange = { majorExpanded = !majorExpanded }) {
                 OutlinedTextField(
-                    value = major.name.replace("_", " "), onValueChange = {}, readOnly = true, label = { Text("Jurusan *") },
+                    value = major.name.replace("_", " "),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Jurusan *") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = majorExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(16.dp)
                 )
                 ExposedDropdownMenu(expanded = majorExpanded, onDismissRequest = { majorExpanded = false }) {
                     availableMajors.forEach { item ->
@@ -763,11 +819,27 @@ fun AddEditMemberView(
             Spacer(Modifier.height(8.dp))
 
             // Kontak
-            OutlinedTextField(value = contact, onValueChange = onContactChange, label = { Text("Nomor Kontak *") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            OutlinedTextField(
+                value = contact,
+                onValueChange = onContactChange,
+                label = { Text("Nomor Kontak *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(16.dp)
+            )
             Spacer(Modifier.height(8.dp))
 
             // Email
-            OutlinedTextField(value = email, onValueChange = onEmailChange, label = { Text("Email (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+            OutlinedTextField(
+                value = email,
+                onValueChange = onEmailChange,
+                label = { Text("Email (Opsional)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                shape = RoundedCornerShape(16.dp)
+            )
             Spacer(Modifier.height(24.dp))
 
             Button(onClick = onSave, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) {
@@ -784,9 +856,9 @@ fun AddEditMemberView(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     TextButton(onClick = { galleryLauncher.launch("image/*"); showImageSourceDialog = false }) { Text("Galeri") }
                     TextButton(onClick = {
-                        val uri = createImageFileUri(context)
-                        if (uri != null) { tempUri = uri; cameraLauncher.launch(uri) }
                         showImageSourceDialog = false
+                        // ✅ Request camera permission first
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                     }) { Text("Kamera") }
                 }
             }

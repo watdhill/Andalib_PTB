@@ -116,6 +116,9 @@ model Admin {
 
   // Relasi: Admin yang mencatat peminjaman
   Peminjaman Peminjaman[]
+  
+  // Relasi: Notifikasi yang diterima admin
+  notifications Notification[]
 }
 
 // ----------------------------------------------------
@@ -204,3 +207,41 @@ model Pengembalian {
   peminjamanId Int      @unique
   peminjaman   Peminjaman @relation(fields: [peminjamanId], references: [id])
 }
+
+// ============================================================
+// NOTIFICATION SYSTEM - GENERIC UNTUK SEMUA JENIS NOTIFIKASI
+// ============================================================
+// Model generic untuk semua notifikasi (member, buku, peminjaman, dll)
+// Lebih scalable dan future-proof
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  
+  // Admin yang menerima notifikasi
+  adminId   Int
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  // Tipe notifikasi (untuk filtering dan badge)
+  type      String   // "MEMBER_DELETED", "BOOK_ADDED", "RETURN_OVERDUE", etc
+  
+  // Konten notifikasi
+  title     String   // "Anggota Dihapus", "Buku Baru", etc
+  message   String   @db.Text // Pesan lengkap
+  
+  // Metadata fleksibel untuk data tambahan (JSON format)
+  // Contoh: {"memberName": "John", "memberNim": "123", "deletedBy": "Admin A"}
+  metadata  String?  @db.Text
+  
+  // Status baca
+  isRead    Boolean  @default(false)
+  readAt    DateTime? // Timestamp kapan dibaca (untuk auto-delete 2 menit kemudian)
+  
+  // Timestamp
+  createdAt DateTime @default(now())
+  
+  // Indexes untuk query cepat
+  @@index([adminId, isRead ])
+  @@index([type])
+  @@index([createdAt])
+}
+

@@ -9,6 +9,7 @@ import com.example.andalib.data.login.LoginResponse
 import com.example.andalib.data.network.AuthService
 import com.example.andalib.data.network.createAuthService
 import com.example.andalib.data.TokenManager
+import com.example.andalib.service.NotificationPollingService
 import com.google.gson.Gson // Import Gson untuk parsing error body
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ data class ErrorResponse(val message: String)
 
 class LoginViewModel(
     private val authService: AuthService,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val context: Context
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
@@ -51,6 +53,20 @@ class LoginViewModel(
                     // ✅ PERBAIKAN LOGIKA: Hanya cek apakah token ada
                     if (loginBody?.token != null) {
                         tokenManager.saveAuthToken(loginBody.token)
+                        
+                        // ✅ START NOTIFICATION SERVICE
+                        NotificationPollingService.start(context)
+                        
+                        // 🧪 TEST NOTIFICATION - Verify notification system works
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            val helper = com.example.andalib.utils.MemberNotificationHelper(context)
+                            helper.showNotification(
+                                title = "TEST: Notifikasi Berfungsi!",
+                                message = "Jika muncul popup, notif system OK ✅",
+                                notificationId = 9999
+                            )
+                        }, 2000) // 2 seconds after login
+                        
                         _loginState.value = LoginUiState.Success(loginBody.message ?: "Login berhasil!")
                     } else {
                         // Respons 2xx tapi token null
@@ -108,7 +124,7 @@ class LoginViewModelFactory(private val context: Context) : ViewModelProvider.Fa
             // ✅ Menggunakan context.applicationContext di Factory untuk mencegah memory leak
             val tokenManager = TokenManager(context.applicationContext)
             val authService = createAuthService(tokenManager)
-            return LoginViewModel(authService, tokenManager) as T
+            return LoginViewModel(authService, tokenManager, context.applicationContext) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
