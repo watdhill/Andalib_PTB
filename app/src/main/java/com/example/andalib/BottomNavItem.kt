@@ -18,7 +18,7 @@ sealed class BottomNavItem(
     object Books : BottomNavItem(
         route = "books",
         title = "Buku",
-        icon = Icons.Default.Book
+        icon = Icons.Default.MenuBook
     )
 
     object Borrowing : BottomNavItem(
