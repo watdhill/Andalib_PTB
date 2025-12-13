@@ -62,6 +62,40 @@ const getAllAnggota = async (req, res) => {
     }
 };
 
+// 2a. Mencari Anggota berdasarkan Query
+const searchAnggota = async (req, res) => {
+    const { q } = req.query;
+
+    if (!q || q.length < 1) {
+        return res.json([]);
+    }
+
+    try {
+        const anggotaList = await prisma.anggota.findMany({
+            where: {
+                OR: [
+                    { name: { contains: q } },
+                    { nim: { contains: q } }
+                ]
+            },
+            select: {
+                nim: true,
+                name: true,
+                major: true,
+                contact: true,
+                email: true
+            },
+            take: 10,
+            orderBy: { name: 'asc' }
+        });
+
+        res.json(anggotaList);
+    } catch (error) {
+        console.error('Search Anggota Error:', error);
+        res.status(500).json({ error: 'Gagal mencari anggota' });
+    }
+};
+
 // 2b. Mendapatkan Detail Anggota Berdasarkan NIM
 const getAnggotaByNim = async (req, res) => {
     const { targetNim } = req.params;
@@ -280,6 +314,7 @@ const uploadMemberPhoto = async (req, res) => {
 module.exports = {
     createAnggota,
     getAllAnggota,
+    searchAnggota,
     getAnggotaByNim,
     updateAnggota,
     deleteAnggota,

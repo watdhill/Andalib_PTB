@@ -62,6 +62,35 @@ const getAllBuku = async (req, res) => {
 };
 
 /**
+ * Mencari Buku berdasarkan query
+ */
+const searchBuku = async (req, res) => {
+    const { q } = req.query;
+
+    if (!q || q.length < 1) {
+        return res.json([]);
+    }
+
+    try {
+        const bukuList = await prisma.buku.findMany({
+            where: {
+                OR: [
+                    { title: { contains: q } },
+                    { author: { contains: q } }
+                ]
+            },
+            include: { kategori: true },
+            take: 10,
+            orderBy: { title: 'asc' }
+        });
+        res.status(200).json(bukuList);
+    } catch (error) {
+        console.error('Search Buku Error:', error);
+        res.status(500).json({ message: 'Gagal mencari buku.' });
+    }
+};
+
+/**
  * Mendapatkan detail Buku berdasarkan id
  */
 const getBukuById = async (req, res) => {
@@ -141,7 +170,7 @@ const deleteBuku = async (req, res) => {
         if (!existing) return res.status(404).json({ message: 'Buku tidak ditemukan.' });
 
         // cek peminjaman aktif terkait buku
-        const activeBorrowings = await prisma.peminjaman.count({ where: { bukuId: id, isReturned: false } });
+        const activeBorrowings = await prisma.peminjaman.count({ where: { bukuId: id, status: 'DIPINJAM' } });
         if (activeBorrowings > 0) {
             return res.status(400).json({ message: `Buku ini tidak bisa dihapus karena ada ${activeBorrowings} peminjaman aktif.` });
         }
@@ -158,6 +187,7 @@ const deleteBuku = async (req, res) => {
 module.exports = {
     createBuku,
     getAllBuku,
+    searchBuku,
     getBukuById,
     updateBuku,
     deleteBuku,

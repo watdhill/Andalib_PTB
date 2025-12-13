@@ -175,6 +175,9 @@ model Peminjaman {
   jatuhTempo    DateTime
   status        StatusPeminjaman @default(DIPINJAM) // Status aktif/selesai
 
+  // Path foto KRS (opsional)
+  krsImagePath  String?
+
   // Relasi Buku
   bukuId Int
   buku   Buku @relation(fields: [bukuId], references: [id])

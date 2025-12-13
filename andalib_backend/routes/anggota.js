@@ -44,6 +44,9 @@ const upload = multer({
 // GET: Ambil semua anggota
 router.get('/', anggotaController.getAllAnggota);
 
+// GET: Cari anggota berdasarkan query
+router.get('/search', anggotaController.searchAnggota);
+
 // GET: Ambil detail anggota by NIM
 router.get('/:targetNim', anggotaController.getAnggotaByNim);
 
