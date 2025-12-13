@@ -9,8 +9,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import com.example.andalib.screen.BlueDark
-import com.example.andalib.screen.BlueMedium
+import com.example.andalib.screen.pengembalian.BlueDark
 
 private val DarkColorScheme = darkColorScheme(
     primary = BlueDark,
