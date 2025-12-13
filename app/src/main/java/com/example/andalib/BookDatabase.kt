@@ -17,7 +17,8 @@ class BookDatabase(context: Context) :
                 publisher TEXT,
                 year TEXT,
                 category TEXT,
-                cover_path TEXT
+                cover_path TEXT,
+                server_id INTEGER
             )
         """)
     }
@@ -35,6 +36,7 @@ class BookDatabase(context: Context) :
             put("year", book.year)
             put("category", book.category)
             put("cover_path", book.coverPath)
+            if (book.serverId != null) put("server_id", book.serverId)
         }
         return writableDatabase.insert("books", null, values)
     }
@@ -52,7 +54,8 @@ class BookDatabase(context: Context) :
                     publisher = cursor.getString(3) ?: "",
                     year = cursor.getString(4) ?: "",
                     category = cursor.getString(5) ?: "",
-                    coverPath = cursor.getString(6) ?: ""
+                    coverPath = cursor.getString(6) ?: "",
+                    serverId = if (!cursor.isNull(7)) cursor.getInt(7) else null
                 ))
             } while (cursor.moveToNext())
         }
@@ -76,7 +79,8 @@ class BookDatabase(context: Context) :
                     publisher = cursor.getString(3) ?: "",
                     year = cursor.getString(4) ?: "",
                     category = cursor.getString(5) ?: "",
-                    coverPath = cursor.getString(6) ?: ""
+                    coverPath = cursor.getString(6) ?: "",
+                    serverId = if (!cursor.isNull(7)) cursor.getInt(7) else null
                 ))
             } while (cursor.moveToNext())
         }
@@ -92,11 +96,17 @@ class BookDatabase(context: Context) :
             put("year", book.year)
             put("category", book.category)
             put("cover_path", book.coverPath)
+            if (book.serverId != null) put("server_id", book.serverId)
         }
         return writableDatabase.update("books", values, "id = ?", arrayOf(book.id.toString()))
     }
 
     fun deleteBook(id: Int): Int {
         return writableDatabase.delete("books", "id = ?", arrayOf(id.toString()))
+    }
+
+    fun setServerId(localId: Int, serverId: Int): Int {
+        val values = ContentValues().apply { put("server_id", serverId) }
+        return writableDatabase.update("books", values, "id = ?", arrayOf(localId.toString()))
     }
 }

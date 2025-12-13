@@ -43,7 +43,7 @@ enum Major {
   PROTEKSI_TANAMAN
   PENYULUHAN_PERTANIAN
   AGROEKOTEKNOLOGI
-
+  
   PENDIDIKAN_DOKTER
   KEBIDANAN
   PSIKOLOGI
@@ -79,7 +79,7 @@ enum Major {
   TEKNIK_LINGKUNGAN
   TEKNIK_INDUSTRI
   TEKNIK_ELEKTRO
-
+  
   FARMASI
 
   TEKNOLOGI_PANGAN_HASIL_PERTANIAN
@@ -98,17 +98,27 @@ enum Major {
   TEKNIK_KOMPUTER
 }
 
+// Enum untuk Status Peminjaman
+enum StatusPeminjaman {
+  DIPINJAM
+  DIKEMBALIKAN
+}
+
 // ----------------------------------------------------
 // ADMIN
 // ----------------------------------------------------
 
 model Admin {
-  id         Int          @id @default(autoincrement())
-  email      String       @unique
+  id         Int        @id @default(autoincrement())
+  email      String     @unique
   password   String
   name       String
 
+  // Relasi: Admin yang mencatat peminjaman
   Peminjaman Peminjaman[]
+  
+  // Relasi: Notifikasi yang diterima admin
+  notifications Notification[]
 }
 
 // ----------------------------------------------------
@@ -116,30 +126,29 @@ model Admin {
 // ----------------------------------------------------
 
 model Anggota {
-  nim               String   @id
-  name              String
+  nim              String   @id
+  name             String
+  gender           Gender
+  faculty          Faculty
+  major            Major
+  contact          String
+  email            String?
+  photoPath        String?
+  registrationDate DateTime @default(now())
 
-  gender            Gender
-  faculty           Faculty
-  major             Major
-
-  contact           String
-  email             String?
-  photoPath         String?
-  registrationDate  DateTime @default(now())
-
-  Peminjaman        Peminjaman[]
+  // Relasi: Satu anggota bisa punya banyak peminjaman
+  Peminjaman Peminjaman[]
 }
 
 // ----------------------------------------------------
-// KATEGORI, BUKU, DENDA, PEMINJAMAN
+// KATEGORI & BUKU
 // ----------------------------------------------------
 
 model Kategori {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
+  id   Int    @id @default(autoincrement())
+  name String @unique
 
-  Buku  Buku[]
+  Buku Buku[]
 }
 
 model Buku {
@@ -147,7 +156,7 @@ model Buku {
   title           String
   author          String
   publicationYear Int?
-  quantity        Int        @default(1)
+  stok            Int        @default(1) // Jumlah stok buku
 
   kategoriId Int
   kategori   Kategori @relation(fields: [kategoriId], references: [id])
@@ -155,33 +164,84 @@ model Buku {
   Peminjaman Peminjaman[]
 }
 
-model Denda {
-  id           Int       @id @default(autoincrement())
-  amount       Int
-  reason       String?
+// ----------------------------------------------------
+// TRANSAKSI (PEMINJAMAN & PENGEMBALIAN)
+// ----------------------------------------------------
 
-  peminjamanId Int @unique
+// Tabel Peminjaman: Mencatat data AWAL saat buku keluar
+model Peminjaman {
+  id            Int              @id @default(autoincrement())
+  tanggalPinjam DateTime         @default(now())
+  jatuhTempo    DateTime
+  status        StatusPeminjaman @default(DIPINJAM) // Status aktif/selesai
+
+  // Relasi Buku
+  bukuId Int
+  buku   Buku @relation(fields: [bukuId], references: [id])
+
+  // Relasi Anggota
+  anggotaNim String
+  anggota    Anggota @relation(fields: [anggotaNim], references: [nim])
+
+  // Relasi Admin (Pencatat)
+  adminId Int?
+  admin   Admin? @relation(fields: [adminId], references: [id])
+
+  // Relasi ke Pengembalian (One-to-One, Opsional)
+  pengembalian Pengembalian?
+}
+
+// Tabel Pengembalian: Mencatat data AKHIR saat buku kembali
+model Pengembalian {
+  id                  Int      @id @default(autoincrement())
+  tanggalPengembalian DateTime @default(now())
+  denda               Int      @default(0) // Jumlah denda
+
+  // Bukti kerusakan buku (URL atau path file, bersifat opsional)
+  buktiKerusakanUrl   String?  
+  
+  // Opsional: Catatan tambahan mengenai kondisi buku, dll
+  keterangan          String? 
+
+  // Relasi Balik ke Peminjaman (Foreign Key)
+  peminjamanId Int      @unique
   peminjaman   Peminjaman @relation(fields: [peminjamanId], references: [id])
 }
 
-model Peminjaman {
-  id         Int       @id @default(autoincrement())
-  borrowDate DateTime  @default(now())
-  dueDate    DateTime
-  returnDate DateTime?
-  isReturned Boolean   @default(false)
+// ============================================================
+// NOTIFICATION SYSTEM - GENERIC UNTUK SEMUA JENIS NOTIFIKASI
+// ============================================================
+// Model generic untuk semua notifikasi (member, buku, peminjaman, dll)
+// Lebih scalable dan future-proof
 
-  // Relasi Buku
-  bukuId     Int
-  buku       Buku      @relation(fields: [bukuId], references: [id])
-
-  // Relasi Anggota (PAKAI NIM BUKAN ID)
-  anggotaNim String
-  anggota    Anggota   @relation(fields: [anggotaNim], references: [nim])
-
-  // Relasi Admin
-  adminId    Int
-  admin      Admin     @relation(fields: [adminId], references: [id])
-
-  denda      Denda?
+model Notification {
+  id        Int      @id @default(autoincrement())
+  
+  // Admin yang menerima notifikasi
+  adminId   Int
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  // Tipe notifikasi (untuk filtering dan badge)
+  type      String   // "MEMBER_DELETED", "BOOK_ADDED", "RETURN_OVERDUE", etc
+  
+  // Konten notifikasi
+  title     String   // "Anggota Dihapus", "Buku Baru", etc
+  message   String   @db.Text // Pesan lengkap
+  
+  // Metadata fleksibel untuk data tambahan (JSON format)
+  // Contoh: {"memberName": "John", "memberNim": "123", "deletedBy": "Admin A"}
+  metadata  String?  @db.Text
+  
+  // Status baca
+  isRead    Boolean  @default(false)
+  readAt    DateTime? // Timestamp kapan dibaca (untuk auto-delete 2 menit kemudian)
+  
+  // Timestamp
+  createdAt DateTime @default(now())
+  
+  // Indexes untuk query cepat
+  @@index([adminId, isRead ])
+  @@index([type])
+  @@index([createdAt])
 }
+

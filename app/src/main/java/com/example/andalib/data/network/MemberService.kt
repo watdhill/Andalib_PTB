@@ -50,4 +50,12 @@ interface MemberService {
     // Hapus Anggota
     @DELETE("anggota/{nim}")
     suspend fun deleteMember(@Path("nim") nim: String): MemberActionResponse
+    
+    // Upload Foto Anggota (untuk update foto existing member)
+    @Multipart
+    @POST("anggota/{id}/photo")
+    suspend fun uploadPhoto(
+        @Path("id") memberId: Int,
+        @Part photo: MultipartBody.Part
+    ): MemberActionResponse
 }

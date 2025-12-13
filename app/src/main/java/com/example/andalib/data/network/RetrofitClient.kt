@@ -4,7 +4,7 @@ import com.example.andalib.data.login.LoginRequest
 import com.example.andalib.data.login.LoginResponse
 import com.example.andalib.data.signup.SignUpRequest
 import com.example.andalib.data.signup.SignUpResponse
-import com.example.andalib.data.TokenManager
+import com.example.andalib.data.TokenManager // Pastikan TokenManager ada di package ini
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
@@ -15,12 +15,19 @@ import retrofit2.Response
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
-import com.example.andalib.Borrowing
-import retrofit2.http.GET
-import com.example.andalib.data.network.BorrowingApi
 
-// PASTIKAN URL INI BENAR! Ganti jika IP PC Anda berubah atau jika Anda menggunakan emulator standar (10.0.2.2).
+
+// =====================================================================
+// KONSTANTA
+// =====================================================================
+
+// !!! GANTI BASE_URL INI DENGAN ALAMAT IP SERVER BACKEND ANDA !!!
+// Contoh: "http://10.0.2.2:3000/api/" jika menggunakan emulator Android dan server lokal
 private const val BASE_URL = "http://10.0.2.2:3000/api/"
+
+// =====================================================================
+// INTERCEPTOR & HTTP CLIENT
+// =====================================================================
 
 /**
  * Interceptor untuk menambahkan token JWT ke setiap request terproteksi.
@@ -57,6 +64,10 @@ fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
         .build()
 }
 
+// =====================================================================
+// RETROFIT INSTANCE FACTORY
+// =====================================================================
+
 /**
  * Inisialisasi Retrofit.
  */
@@ -68,19 +79,25 @@ fun createRetrofit(tokenManager: TokenManager): Retrofit {
         .build()
 }
 
+// =====================================================================
+// INTERFACE SERVICES
+// =====================================================================
+
 /**
  * Interface Service API untuk otentikasi.
  */
 interface AuthService {
-    // KITAUBAH JADI: Response<LoginResponse>
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
-    // KITAUBAH JADI: Response<SignUpResponse>
-    // Ini memperbaiki error "Unresolved reference" di ViewModel nanti karena kita akan akses body()
-    @POST("auth/register") // Pastikan ini cocok dengan /api/auth + /register
+    @POST("auth/register")
     suspend fun signup(@Body request: SignUpRequest): Response<SignUpResponse>
 }
+
+
+// =====================================================================
+// SERVICE FACTORY FUNCTIONS
+// =====================================================================
 
 /**
  * Fungsi untuk membuat instance AuthService.
@@ -89,10 +106,16 @@ fun createAuthService(tokenManager: TokenManager): AuthService {
     return createRetrofit(tokenManager).create(AuthService::class.java)
 }
 
-// =====================================================================
-// BARU: Fungsi untuk membuat instance BorrowingApi.
-// (Interface BorrowingApi ASLI seharusnya ada di file BorrowingApi.kt)
-// =====================================================================
+/**
+ * BARU: Fungsi untuk membuat instance ApiService (untuk modul Pengembalian).
+ */
+fun createApiService(tokenManager: TokenManager): ApiService {
+    return createRetrofit(tokenManager).create(ApiService::class.java)
+}
+
+/**
+ * Fungsi untuk membuat instance BorrowingApi.
+ */
 fun createBorrowingService(tokenManager: TokenManager): BorrowingApi {
     return createRetrofit(tokenManager).create(BorrowingApi::class.java)
 }

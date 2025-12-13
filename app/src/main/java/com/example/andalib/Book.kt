@@ -7,5 +7,6 @@ data class Book(
     val publisher: String,
     val year: String,
     val category: String,
-    val coverPath: String
+    val coverPath: String,
+    val serverId: Int? = null // ID dari server (MySQL) jika sudah disinkronkan
 )
