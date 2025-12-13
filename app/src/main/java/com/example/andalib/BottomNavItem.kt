@@ -24,7 +24,7 @@ sealed class BottomNavItem(
     object Borrowing : BottomNavItem(
         route = "borrowing",
         title = "Peminjaman",
-        icon = Icons.Default.ShoppingCart
+        icon = Icons.Default.BookmarkAdd
     )
 
     object Return : BottomNavItem(
