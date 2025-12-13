@@ -18,13 +18,13 @@ sealed class BottomNavItem(
     object Books : BottomNavItem(
         route = "books",
         title = "Buku",
-        icon = Icons.Default.Book
+        icon = Icons.Default.MenuBook
     )
 
     object Borrowing : BottomNavItem(
         route = "borrowing",
         title = "Peminjaman",
-        icon = Icons.Default.ShoppingCart
+        icon = Icons.Default.BookmarkAdd
     )
 
     object Return : BottomNavItem(

@@ -44,19 +44,19 @@ fun createImageFile(context: Context, prefix: String): File {
 }
 
 /**
- * Mendapatkan tanggal hari ini.
+ * Mendapatkan tanggal hari ini dalam format dd/MM/yyyy.
  */
 fun getCurrentDate(): String {
-    val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     return sdf.format(Date())
 }
 
 /**
- * Mendapatkan tanggal di masa depan (misalnya, 7 hari ke depan).
+ * Mendapatkan tanggal di masa depan dalam format dd/MM/yyyy.
  */
 fun getFutureDate(days: Int): String {
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, days)
-    val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     return sdf.format(calendar.time)
 }
