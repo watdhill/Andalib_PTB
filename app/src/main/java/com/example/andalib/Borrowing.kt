@@ -8,43 +8,43 @@ import com.google.gson.annotations.SerializedName
  */
 data class Borrowing(
     val id: Int = 0,
-
+    
     // Data Peminjam (dari relasi Anggota)
     @SerializedName("borrowerName")
     val borrowerName: String = "",
-
+    
     val nim: String = "",
-
+    
     val major: String = "",
-
+    
     val contact: String = "",
-
+    
     // Data Buku (dari relasi Buku)
     @SerializedName("bookTitle")
     val bookTitle: String = "",
-
+    
     val author: String = "",
-
+    
     // Stok buku dari relasi Buku
     val stok: Int = 0,
-
+    
     // ISBN tidak ada di DB, tetap ada untuk kompatibilitas UI
     val isbn: String = "",
-
+    
     // Path foto KRS (opsional)
     @SerializedName("identityPath")
     val identityPath: String = "",
-
+    
     // Tanggal dalam format dd/MM/yyyy
     @SerializedName("borrowDate")
     val borrowDate: String = "",
-
+    
     @SerializedName("returnDate")
     val returnDate: String = "",
-
+    
     // Status peminjaman: DIPINJAM atau DIKEMBALIKAN
     val status: String = "DIPINJAM",
-
+    
     // ID buku untuk referensi
     @SerializedName("bukuId")
     val bukuId: Int = 0

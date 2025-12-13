@@ -1,13 +1,16 @@
 // routes/buku.js
 const express = require('express');
 const router = express.Router();
-const { createBuku, getAllBuku, getBukuById, updateBuku, deleteBuku } = require('../controllers/bukuController');
+const { createBuku, getAllBuku, searchBuku, getBukuById, updateBuku, deleteBuku } = require('../controllers/bukuController');
 
 // POST /api/buku  -> tambah buku
 router.post('/', createBuku);
 
 // GET /api/buku -> list semua buku
 router.get('/', getAllBuku);
+
+// GET /api/buku/search?q=... -> cari buku
+router.get('/search', searchBuku);
 
 // GET /api/buku/:id -> detail buku
 router.get('/:id', getBukuById);

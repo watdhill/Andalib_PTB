@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const anggotaRoutes = require('./routes/anggota');
 const returnsRoutes = require('./routes/return');
+const peminjamanRoutes = require('./routes/peminjaman');
+const bukuRoutes = require('./routes/buku');
 
 dotenv.config();
 
@@ -23,6 +25,8 @@ app.use('/api/auth', authRoutes); // /api/auth/login, /api/auth/register
 app.use('/api/admin', adminRoutes); // Route khusus untuk Admin (sudah dilindungi)
 app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
 app.use('/api/returns', returnsRoutes);
+app.use('/api/peminjaman', peminjamanRoutes); // Route untuk CRUD Peminjaman
+app.use('/api/buku', bukuRoutes); // Route untuk CRUD Buku
 
 // ========== NOTIFIKASI MEMBER: ROUTES ==========
 // Route untuk notifikasi penghapusan anggota

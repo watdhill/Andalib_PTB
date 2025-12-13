@@ -258,7 +258,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
             android.util.Log.d("BorrowingVM", "BukuId: $bukuId")
             android.util.Log.d("BorrowingVM", "JatuhTempo: $jatuhTempo")
             android.util.Log.d("BorrowingVM", "TanggalPinjam: $tanggalPinjam")
-
+            
             val request = CreateBorrowingRequest(
                 nim = nim,
                 bukuId = bukuId,
@@ -266,11 +266,11 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                 tanggalPinjam = tanggalPinjam
             )
             val response = api.createBorrowing(request)
-
+            
             android.util.Log.d("BorrowingVM", "Response code: ${response.code()}")
             android.util.Log.d("BorrowingVM", "Response body: ${response.body()}")
             android.util.Log.d("BorrowingVM", "Error body: ${response.errorBody()?.string()}")
-
+            
             if (response.isSuccessful && response.body()?.success == true) {
                 loadBorrowings()
                 loadBooks() // Refresh stok buku
@@ -370,7 +370,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                 adminId = null,
                 krsImage = krsImagePart
             )
-
+            
             android.util.Log.d("BorrowingVM", "Response code: ${response.code()}")
             android.util.Log.d("BorrowingVM", "Response body: ${response.body()}")
 
@@ -446,7 +446,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-
     /**
      * Upload KRS untuk peminjaman yang sudah ada menggunakan file path
      */
@@ -457,7 +456,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                 // Ini path server, tidak perlu upload ulang
                 return true
             }
-
+            
             val file = File(krsPath)
             if (!file.exists()) {
                 errorMessage = "File KRS tidak ditemukan"
@@ -472,7 +471,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
 
             val response = api.uploadKrs(id, krsImagePart)
             android.util.Log.d("BorrowingVM", "Upload response: ${response.code()}")
-
+            
             if (response.isSuccessful && response.body()?.success == true) {
                 loadBorrowings()
                 true
