@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,7 +69,14 @@ fun BookScreen() {
     var formYear by remember { mutableStateOf("") }
     var formCategory by remember { mutableStateOf("") }
     var formCoverPath by remember { mutableStateOf("") }
+    var formStok by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Add stock states
+    var showAddStockDialog by remember { mutableStateOf(false) }
+    var addStockIsbn by remember { mutableStateOf("") }
+    var addStockAmount by remember { mutableStateOf("") }
+    var addStockBookInfo by remember { mutableStateOf<Book?>(null) }
 
     val filteredBooks = if (searchQuery.isEmpty()) {
         books
@@ -102,6 +111,7 @@ fun BookScreen() {
         formYear = ""
         formCategory = ""
         formCoverPath = ""
+        formStok = ""
     }
 
     Scaffold(
@@ -110,6 +120,7 @@ fun BookScreen() {
                 "add" -> "Tambah Buku"
                 "edit" -> "Edit Buku"
                 "detail" -> "Detail Buku"
+                "addstock" -> "Tambah Stok"
                 else -> "Data Buku"
             }
 
@@ -173,6 +184,12 @@ fun BookScreen() {
                     resetForm()
                     currentView = "add"
                 },
+                onAddStock = {
+                    addStockIsbn = ""
+                    addStockAmount = ""
+                    addStockBookInfo = null
+                    showAddStockDialog = true
+                },
                 modifier = Modifier.padding(padding)
             )
 
@@ -187,6 +204,7 @@ fun BookScreen() {
                         formYear = book.year
                         formCategory = book.category
                         formCoverPath = book.coverPath
+                        formStok = book.stok.toString()
                         currentView = "edit"
                     },
                     onDelete = {
@@ -205,6 +223,7 @@ fun BookScreen() {
                 year = formYear,
                 category = formCategory,
                 coverPath = formCoverPath,
+                stok = formStok,
                 onIsbnChange = { formIsbn = it },
                 onTitleChange = { formTitle = it },
                 onAuthorChange = { formAuthor = it },
@@ -212,6 +231,7 @@ fun BookScreen() {
                 onYearChange = { formYear = it },
                 onCategoryChange = { formCategory = it },
                 onCoverPathChange = { formCoverPath = it },
+                onStokChange = { formStok = it },
                 onSave = {
                     val isFormComplete = formTitle.isNotEmpty() && formAuthor.isNotEmpty() && formIsbn.isNotEmpty()
                     var success = false
@@ -230,7 +250,8 @@ fun BookScreen() {
                                 publisher = formPublisher,
                                 year = formYear,
                                 category = formCategory,
-                                coverPath = formCoverPath
+                                coverPath = formCoverPath,
+                                stok = formStok.toIntOrNull() ?: 0
                             )
                             val localId = database.insertBook(newBook)
                             if (localId == -1L) {
@@ -250,9 +271,7 @@ fun BookScreen() {
                                         "title" to newBook.title,
                                         "author" to newBook.author,
                                         "publicationYear" to newBook.year.toIntOrNull(),
-                                        // quantity not present in local DB; default to 1
-                                        "stok" to 1,
-                                        // send kategoriName so backend can find or create category
+                                        "stok" to newBook.stok,
                                         "kategoriName" to newBook.category
                                     )
                                     val resp = service.createBook(payload)
@@ -288,7 +307,8 @@ fun BookScreen() {
                                     publisher = formPublisher,
                                     year = formYear,
                                     category = formCategory,
-                                    coverPath = formCoverPath
+                                    coverPath = formCoverPath,
+                                    stok = formStok.toIntOrNull() ?: book.stok
                                 )
                                 val rows = database.updateBook(updatedBook)
                                 if (rows <= 0) {
@@ -309,7 +329,7 @@ fun BookScreen() {
                                                 "title" to updatedBook.title,
                                                 "author" to updatedBook.author,
                                                 "publicationYear" to updatedBook.year.toIntOrNull(),
-                                                "stok" to 1,
+                                                "stok" to updatedBook.stok,
                                                 "kategoriName" to updatedBook.category
                                             )
                                             service.updateBook(serverId, payload)
@@ -374,6 +394,124 @@ fun BookScreen() {
             }
         )
     }
+
+    if (showAddStockDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showAddStockDialog = false
+                addStockBookInfo = null
+                addStockIsbn = ""
+                addStockAmount = ""
+            },
+            title = { Text("Tambah Stok Buku") },
+            text = {
+                Column {
+                    if (addStockBookInfo == null) {
+                        Text("Masukkan ISBN buku untuk menambah stok:")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = addStockIsbn,
+                            onValueChange = { addStockIsbn = it },
+                            label = { Text("ISBN") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text("Buku ditemukan:")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Judul: ${addStockBookInfo!!.title}", fontWeight = FontWeight.Bold)
+                        Text("Stok saat ini: ${addStockBookInfo!!.stok}")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Jumlah stok yang akan ditambahkan:")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = addStockAmount,
+                            onValueChange = { addStockAmount = it.filter { char -> char.isDigit() } },
+                            label = { Text("Jumlah") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (addStockBookInfo == null) {
+                        // Check ISBN
+                        val book = database.getBookByIsbn(addStockIsbn)
+                        if (book != null) {
+                            addStockBookInfo = book
+                        } else {
+                            showNotif("⚠ Buku dengan ISBN tersebut tidak ditemukan!")
+                            showAddStockDialog = false
+                        }
+                    } else {
+                        // Add stock
+                        val amount = addStockAmount.toIntOrNull()
+                        val trimmedIsbn = addStockIsbn.trim()
+                        android.util.Log.d("BookScreen", "Add stock - ISBN: $trimmedIsbn, Amount: $amount")
+                        if (amount != null && amount > 0) {
+                            val success = database.updateStok(trimmedIsbn, amount)
+                            android.util.Log.d("BookScreen", "Update stock result: $success")
+                            if (success) {
+                                // sync to server if serverId exists
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        val latestBook = database.getBookByIsbn(trimmedIsbn)
+                                        val serverId = latestBook?.serverId
+                                        val catName = latestBook?.category?.takeIf { it.isNotBlank() }
+                                        if (serverId != null && latestBook != null) {
+                                            val service = createBookService()
+                                            val payload = mapOf<String, Any?>(
+                                                "isbn" to latestBook.isbn,
+                                                "title" to latestBook.title,
+                                                "author" to latestBook.author,
+                                                "publicationYear" to latestBook.year.toIntOrNull(),
+                                                "stok" to latestBook.stok,
+                                                "kategoriName" to catName
+                                            )
+                                            val resp = service.updateBook(serverId, payload)
+                                            if (!resp.isSuccessful) {
+                                                android.util.Log.e("BookScreen", "Remote stok sync failed: ${resp.code()} ${resp.message()}")
+                                            }
+                                        } else {
+                                            android.util.Log.w("BookScreen", "Skip remote stok sync: serverId missing for ISBN $trimmedIsbn")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("BookScreen", "Failed to sync stock update", e)
+                                    }
+                                }
+
+                                refreshBooks()
+                                showNotif("✓ Stok berhasil ditambahkan! (+$amount)")
+                                showAddStockDialog = false
+                                addStockBookInfo = null
+                                addStockIsbn = ""
+                                addStockAmount = ""
+                            } else {
+                                showNotif("⚠ Gagal menambah stok!")
+                            }
+                        } else {
+                            showNotif("⚠ Masukkan jumlah yang valid!")
+                        }
+                    }
+                }) {
+                    Text(if (addStockBookInfo == null) "Cari" else "Tambah")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showAddStockDialog = false
+                    addStockBookInfo = null
+                    addStockIsbn = ""
+                    addStockAmount = ""
+                }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -384,6 +522,7 @@ fun BookListView(
     onSearchChange: (String) -> Unit,
     onBookClick: (Book) -> Unit,
     onAdd: () -> Unit,
+    onAddStock: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -437,7 +576,7 @@ fun BookListView(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ElevatedCard(
                         onClick = onAdd,
@@ -450,18 +589,50 @@ fun BookListView(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Column {
-                                Text("Tambah Buku", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                Text("Masukkan data baru", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f), fontSize = 12.sp)
+                                Text("Tambah Buku", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 13.sp)
+                                Text("Data baru", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f), fontSize = 11.sp)
                             }
                         }
                     }
 
+                    ElevatedCard(
+                        onClick = onAddStock,
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        ),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Inventory, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("Tambah Stok", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 13.sp)
+                                Text("Via ISBN", color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -469,8 +640,9 @@ fun BookListView(
                     ) {
                         Text(
                             text = "Total: ${books.size}",
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            fontWeight = FontWeight.SemiBold
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -583,11 +755,28 @@ fun BookItem(book: Book, onClick: () -> Unit) {
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = listOf(book.publisher, book.year).filter { it.isNotEmpty() }.joinToString(separator = " • "),
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = listOf(book.publisher, book.year).filter { it.isNotEmpty() }.joinToString(separator = " • "),
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        val stokColor = if (book.stok > 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(stokColor.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "Stok: ${book.stok}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = stokColor
+                            )
+                        }
+                    }
                 }
             }
 
@@ -668,6 +857,33 @@ fun BookDetailView(
             DetailRow(label = "Penerbit", value = book.publisher)
             DetailRow(label = "Tahun", value = book.year)
             DetailRow(label = "Kategori", value = book.category)
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Stock Badge
+            val stokColor = if (book.stok > 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Stok:",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(stokColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "${book.stok} tersedia",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = stokColor
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -728,6 +944,7 @@ fun AddEditBookView(
     year: String,
     category: String,
     coverPath: String,
+    stok: String,
     onIsbnChange: (String) -> Unit,
     onTitleChange: (String) -> Unit,
     onAuthorChange: (String) -> Unit,
@@ -735,6 +952,7 @@ fun AddEditBookView(
     onYearChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
     onCoverPathChange: (String) -> Unit,
+    onStokChange: (String) -> Unit,
     onSave: () -> Unit,
     context: Context,
     modifier: Modifier = Modifier
@@ -882,12 +1100,25 @@ fun AddEditBookView(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Stock Field
+            OutlinedTextField(
+                value = stok,
+                onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) onStokChange(it) },
+                label = { Text("Stok ${if (!isEdit) "*" else ""}") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                leadingIcon = { Icon(Icons.Default.Inventory, contentDescription = null) }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = isbn.isNotEmpty() && title.isNotEmpty() && author.isNotEmpty()
+                enabled = isbn.isNotEmpty() && title.isNotEmpty() && author.isNotEmpty() && (isEdit || stok.isNotEmpty())
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))

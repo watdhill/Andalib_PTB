@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class BookDatabase(context: Context) :
-    SQLiteOpenHelper(context, "perpustakaan.db", null, 3) {
+    SQLiteOpenHelper(context, "perpustakaan.db", null, 4) {
 
     override fun onCreate(db: SQLiteDatabase?) {
         db?.execSQL("""
@@ -19,21 +19,23 @@ class BookDatabase(context: Context) :
                 year TEXT,
                 category TEXT,
                 cover_path TEXT,
+                stok INTEGER DEFAULT 0,
                 server_id INTEGER
             )
         """)
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 3) {
-            // Jika dari versi lama atau ada error, reset database
+        if (oldVersion < 4) {
+            // Add stok column if upgrading from version 3
             try {
+                db?.execSQL("ALTER TABLE books ADD COLUMN stok INTEGER DEFAULT 0")
+            } catch (e: Exception) {
+                // If ALTER fails, recreate table
                 db?.execSQL("DROP TABLE IF EXISTS books")
                 db?.execSQL("DROP TABLE IF EXISTS books_new")
-            } catch (e: Exception) {
-                e.printStackTrace()
+                onCreate(db)
             }
-            onCreate(db)
         }
     }
 
@@ -47,6 +49,7 @@ class BookDatabase(context: Context) :
                 put("year", book.year)
                 put("category", book.category)
                 put("cover_path", book.coverPath)
+                put("stok", book.stok)
                 if (book.serverId != null) put("server_id", book.serverId)
             }
             writableDatabase.insert("books", null, values)
@@ -59,7 +62,7 @@ class BookDatabase(context: Context) :
     fun getAllBooks(): List<Book> {
         val books = mutableListOf<Book>()
         try {
-            val cursor = readableDatabase.rawQuery("SELECT id, isbn, title, author, publisher, year, category, cover_path, server_id FROM books ORDER BY id DESC", null)
+            val cursor = readableDatabase.rawQuery("SELECT id, isbn, title, author, publisher, year, category, cover_path, stok, server_id FROM books ORDER BY id DESC", null)
 
             if (cursor.moveToFirst()) {
                 do {
@@ -73,6 +76,7 @@ class BookDatabase(context: Context) :
                             year = cursor.getString(cursor.getColumnIndexOrThrow("year")) ?: "",
                             category = cursor.getString(cursor.getColumnIndexOrThrow("category")) ?: "",
                             coverPath = cursor.getString(cursor.getColumnIndexOrThrow("cover_path")) ?: "",
+                            stok = cursor.getInt(cursor.getColumnIndexOrThrow("stok")),
                             serverId = if (!cursor.isNull(cursor.getColumnIndexOrThrow("server_id"))) cursor.getInt(cursor.getColumnIndexOrThrow("server_id")) else null
                         ))
                     } catch (e: Exception) {
@@ -91,7 +95,7 @@ class BookDatabase(context: Context) :
         val books = mutableListOf<Book>()
         try {
             val cursor = readableDatabase.rawQuery(
-                "SELECT id, isbn, title, author, publisher, year, category, cover_path, server_id FROM books WHERE isbn LIKE ? OR title LIKE ? OR author LIKE ? ORDER BY id DESC",
+                "SELECT id, isbn, title, author, publisher, year, category, cover_path, stok, server_id FROM books WHERE isbn LIKE ? OR title LIKE ? OR author LIKE ? ORDER BY id DESC",
                 arrayOf("%$query%", "%$query%", "%$query%")
             )
 
@@ -107,6 +111,7 @@ class BookDatabase(context: Context) :
                             year = cursor.getString(cursor.getColumnIndexOrThrow("year")) ?: "",
                             category = cursor.getString(cursor.getColumnIndexOrThrow("category")) ?: "",
                             coverPath = cursor.getString(cursor.getColumnIndexOrThrow("cover_path")) ?: "",
+                            stok = cursor.getInt(cursor.getColumnIndexOrThrow("stok")),
                             serverId = if (!cursor.isNull(cursor.getColumnIndexOrThrow("server_id"))) cursor.getInt(cursor.getColumnIndexOrThrow("server_id")) else null
                         ))
                     } catch (e: Exception) {
@@ -131,6 +136,7 @@ class BookDatabase(context: Context) :
                 put("year", book.year)
                 put("category", book.category)
                 put("cover_path", book.coverPath)
+                put("stok", book.stok)
                 if (book.serverId != null) put("server_id", book.serverId)
             }
             writableDatabase.update("books", values, "id = ?", arrayOf(book.id.toString()))
@@ -175,6 +181,59 @@ class BookDatabase(context: Context) :
             cursor.close()
             exists
         } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun getBookByIsbn(isbn: String): Book? {
+        return try {
+            val cursor = readableDatabase.rawQuery(
+                "SELECT id, isbn, title, author, publisher, year, category, cover_path, stok, server_id FROM books WHERE isbn = ? LIMIT 1",
+                arrayOf(isbn)
+            )
+            
+            var book: Book? = null
+            if (cursor.moveToFirst()) {
+                book = Book(
+                    id = cursor.getInt(cursor.getColumnIndexOrThrow("id")),
+                    isbn = cursor.getString(cursor.getColumnIndexOrThrow("isbn")) ?: "",
+                    title = cursor.getString(cursor.getColumnIndexOrThrow("title")) ?: "",
+                    author = cursor.getString(cursor.getColumnIndexOrThrow("author")) ?: "",
+                    publisher = cursor.getString(cursor.getColumnIndexOrThrow("publisher")) ?: "",
+                    year = cursor.getString(cursor.getColumnIndexOrThrow("year")) ?: "",
+                    category = cursor.getString(cursor.getColumnIndexOrThrow("category")) ?: "",
+                    coverPath = cursor.getString(cursor.getColumnIndexOrThrow("cover_path")) ?: "",
+                    stok = cursor.getInt(cursor.getColumnIndexOrThrow("stok")),
+                    serverId = if (!cursor.isNull(cursor.getColumnIndexOrThrow("server_id"))) cursor.getInt(cursor.getColumnIndexOrThrow("server_id")) else null
+                )
+            }
+            cursor.close()
+            book
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun updateStok(isbn: String, addAmount: Int): Boolean {
+        return try {
+            val book = getBookByIsbn(isbn)
+            if (book != null) {
+                val newStok = (book.stok + addAmount).coerceAtLeast(0)
+                android.util.Log.d("BookDatabase", "Updating stock for ISBN: $isbn, current: ${book.stok}, adding: $addAmount, new: $newStok")
+                val values = ContentValues().apply {
+                    put("stok", newStok)
+                }
+                val rows = writableDatabase.update("books", values, "isbn = ?", arrayOf(isbn))
+                android.util.Log.d("BookDatabase", "Update result: $rows rows affected")
+                rows > 0
+            } else {
+                android.util.Log.d("BookDatabase", "Book not found for ISBN: $isbn")
+                false
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BookDatabase", "Error updating stock", e)
             e.printStackTrace()
             false
         }
