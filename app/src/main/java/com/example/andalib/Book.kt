@@ -9,5 +9,6 @@ data class Book(
     val year: String = "",
     val category: String = "",
     val coverPath: String = "",
+    val stok: Int = 0, // Jumlah stok buku
     val serverId: Int? = null // ID dari server (MySQL) jika sudah disinkronkan
 )
