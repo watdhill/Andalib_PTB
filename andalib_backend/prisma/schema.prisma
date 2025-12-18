@@ -153,6 +153,7 @@ model Kategori {
 
 model Buku {
   id              Int        @id @default(autoincrement())
+  isbn            String     @unique // ISBN harus unik untuk setiap buku
   title           String
   author          String
   publicationYear Int?
