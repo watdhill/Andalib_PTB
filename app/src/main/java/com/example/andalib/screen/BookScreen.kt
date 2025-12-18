@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
@@ -35,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.example.andalib.data.network.createBookService
 import com.example.andalib.saveImageToInternalStorage
 import com.example.andalib.ui.theme.AndalibDarkBlue
+import androidx.compose.material3.HorizontalDivider
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,10 +106,17 @@ fun BookScreen() {
 
     Scaffold(
         topBar = {
+            val topTitle = when (currentView) {
+                "add" -> "Tambah Buku"
+                "edit" -> "Edit Buku"
+                "detail" -> "Detail Buku"
+                else -> "Data Buku"
+            }
+
             TopAppBar(
                 title = {
                     Text(
-                        "Perpustakaan",
+                        topTitle,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -115,20 +124,7 @@ fun BookScreen() {
                     containerColor = AndalibDarkBlue,
                     titleContentColor = Color.White
                 ),
-                actions = {
-                    if (currentView == "list") {
-                        IconButton(onClick = {
-                            resetForm()
-                            currentView = "add"
-                        }) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Tambah Buku",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                },
+                actions = {},
                 navigationIcon = {
                     if (currentView != "list") {
                         IconButton(onClick = {
@@ -172,6 +168,10 @@ fun BookScreen() {
                 onBookClick = { book ->
                     selectedBook = book
                     currentView = "detail"
+                },
+                onAdd = {
+                    resetForm()
+                    currentView = "add"
                 },
                 modifier = Modifier.padding(padding)
             )
@@ -383,28 +383,134 @@ fun BookListView(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onBookClick: (Book) -> Unit,
+    onAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            placeholder = { Text("Cari judul atau penulis...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp)
-        )
-
-        LazyColumn(
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AndalibDarkBlue)
+            .padding(16.dp)
+    ) {
+        Card(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            items(books) { book ->
-                BookItem(book = book, onClick = { onBookClick(book) })
-                Spacer(modifier = Modifier.height(8.dp))
+            Column(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = "Data Buku",
+                    modifier = Modifier.padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 8.dp),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchChange,
+                    placeholder = { Text("Cari judul atau penulis...", fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { onSearchChange("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Hapus", tint = Color.Gray)
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        focusedBorderColor = AndalibDarkBlue
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ElevatedCard(
+                        onClick = onAdd,
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Tambah Buku", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text("Masukkan data baru", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f), fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        tonalElevation = 2.dp
+                    ) {
+                        Text(
+                            text = "Total: ${books.size}",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (books.isEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = Color(0xFFE0E0E0)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    "Belum ada data buku",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        items(books) { book ->
+                            BookItem(book = book, onClick = { onBookClick(book) })
+                        }
+                    }
+                }
             }
         }
     }
@@ -416,83 +522,90 @@ fun BookItem(book: Book, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(80.dp)
-                    .height(112.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (book.coverPath.isNotEmpty() && File(book.coverPath).exists()) {
-                    val bitmap = remember(book.coverPath) {
-                        BitmapFactory.decodeFile(book.coverPath)
+                Box(
+                    modifier = Modifier
+                        .size(width = 70.dp, height = 96.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (book.coverPath.isNotEmpty() && File(book.coverPath).exists()) {
+                        val bitmap = remember(book.coverPath) { BitmapFactory.decodeFile(book.coverPath) }
+                        bitmap?.let {
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "Book Cover",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    } else {
+                        Icon(Icons.Default.Book, contentDescription = null, modifier = Modifier.size(36.dp), tint = Color.Gray)
                     }
-                    bitmap?.let {
-                        Image(
-                            bitmap = it.asImageBitmap(),
-                            contentDescription = "Book Cover",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = book.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 2)
+                    Text(text = book.author, fontSize = 13.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text("ISBN: ${book.isbn}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+
+                        if (book.category.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(book.category, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
                     }
-                } else {
-                    Icon(
-                        Icons.Default.Book,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = Color.Gray
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = listOf(book.publisher, book.year).filter { it.isNotEmpty() }.joinToString(separator = " • "),
+                        fontSize = 12.sp,
+                        color = Color.Gray
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Column(
+            Button(
+                onClick = onClick,
                 modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.Top)
+                    .fillMaxWidth()
+                    .height(42.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AndalibDarkBlue, contentColor = Color.White),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Text(
-                    text = book.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    maxLines = 2
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = book.author,
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "${book.publisher} • ${book.year}",
-                    fontSize = 12.sp,
-                    color = Color.LightGray
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (book.category.isNotEmpty()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = book.category,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+                Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Lihat Detail", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = Color.White)
             }
         }
     }
