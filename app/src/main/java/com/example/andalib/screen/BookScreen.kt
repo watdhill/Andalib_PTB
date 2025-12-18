@@ -44,13 +44,21 @@ fun BookScreen() {
     val database = remember { BookDatabase(context) }
     val coroutineScope = rememberCoroutineScope()
 
-    var books by remember { mutableStateOf(database.getAllBooks()) }
+    var books by remember { 
+        mutableStateOf(try {
+            database.getAllBooks()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        })
+    }
     var searchQuery by remember { mutableStateOf("") }
     var currentView by remember { mutableStateOf("list") }
     var selectedBook by remember { mutableStateOf<Book?>(null) }
     var showNotification by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf("") }
 
+    var formIsbn by remember { mutableStateOf("") }
     var formTitle by remember { mutableStateOf("") }
     var formAuthor by remember { mutableStateOf("") }
     var formPublisher by remember { mutableStateOf("") }
@@ -62,11 +70,21 @@ fun BookScreen() {
     val filteredBooks = if (searchQuery.isEmpty()) {
         books
     } else {
-        database.searchBooks(searchQuery)
+        try {
+            database.searchBooks(searchQuery)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
 
     fun refreshBooks() {
-        books = database.getAllBooks()
+        books = try {
+            database.getAllBooks()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
 
     fun showNotif(message: String) {
@@ -75,6 +93,7 @@ fun BookScreen() {
     }
 
     fun resetForm() {
+        formIsbn = ""
         formTitle = ""
         formAuthor = ""
         formPublisher = ""
@@ -161,6 +180,7 @@ fun BookScreen() {
                 BookDetailView(
                     book = book,
                     onEdit = {
+                        formIsbn = book.isbn
                         formTitle = book.title
                         formAuthor = book.author
                         formPublisher = book.publisher
@@ -178,12 +198,14 @@ fun BookScreen() {
 
             "add", "edit" -> AddEditBookView(
                 isEdit = currentView == "edit",
+                isbn = formIsbn,
                 title = formTitle,
                 author = formAuthor,
                 publisher = formPublisher,
                 year = formYear,
                 category = formCategory,
                 coverPath = formCoverPath,
+                onIsbnChange = { formIsbn = it },
                 onTitleChange = { formTitle = it },
                 onAuthorChange = { formAuthor = it },
                 onPublisherChange = { formPublisher = it },
@@ -191,9 +213,18 @@ fun BookScreen() {
                 onCategoryChange = { formCategory = it },
                 onCoverPathChange = { formCoverPath = it },
                 onSave = {
-                    if (formTitle.isNotEmpty() && formAuthor.isNotEmpty()) {
-                        if (currentView == "add") {
+                    val isFormComplete = formTitle.isNotEmpty() && formAuthor.isNotEmpty() && formIsbn.isNotEmpty()
+                    var success = false
+
+                    if (!isFormComplete) {
+                        showNotif("⚠ ISBN, Judul, dan Penulis harus diisi!")
+                    } else if (currentView == "add") {
+                        val isbnTaken = database.isbnExists(formIsbn)
+                        if (isbnTaken) {
+                            showNotif("⚠ ISBN sudah digunakan! Gunakan ISBN yang berbeda.")
+                        } else {
                             val newBook = Book(
+                                isbn = formIsbn,
                                 title = formTitle,
                                 author = formAuthor,
                                 publisher = formPublisher,
@@ -202,18 +233,25 @@ fun BookScreen() {
                                 coverPath = formCoverPath
                             )
                             val localId = database.insertBook(newBook)
-                            showNotif("✓ Buku berhasil ditambahkan!")
+                            if (localId == -1L) {
+                                // Gagal insert (kemungkinan UNIQUE constraint ISBN)
+                                showNotif("⚠ ISBN sudah digunakan! Gunakan ISBN yang berbeda.")
+                            } else {
+                                showNotif("✓ Buku berhasil ditambahkan!")
+                                success = true
+                            }
 
                             // Try to sync to server in background
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val service = createBookService()
                                     val payload = mapOf<String, Any?>(
+                                        "isbn" to newBook.isbn,
                                         "title" to newBook.title,
                                         "author" to newBook.author,
                                         "publicationYear" to newBook.year.toIntOrNull(),
                                         // quantity not present in local DB; default to 1
-                                        "quantity" to 1,
+                                        "stok" to 1,
                                         // send kategoriName so backend can find or create category
                                         "kategoriName" to newBook.category
                                     )
@@ -236,9 +274,15 @@ fun BookScreen() {
                                     // Log or ignore sync error; local DB has the data
                                 }
                             }
-                        } else {
-                            selectedBook?.let { book ->
+                        }
+                    } else {
+                        selectedBook?.let { book ->
+                            val isbnTakenByOther = formIsbn != book.isbn && database.isbnExists(formIsbn, book.id)
+                            if (isbnTakenByOther) {
+                                showNotif("⚠ ISBN sudah digunakan! Gunakan ISBN yang berbeda.")
+                            } else {
                                 val updatedBook = book.copy(
+                                    isbn = formIsbn,
                                     title = formTitle,
                                     author = formAuthor,
                                     publisher = formPublisher,
@@ -246,8 +290,13 @@ fun BookScreen() {
                                     category = formCategory,
                                     coverPath = formCoverPath
                                 )
-                                database.updateBook(updatedBook)
-                                showNotif("✓ Buku berhasil diperbarui!")
+                                val rows = database.updateBook(updatedBook)
+                                if (rows <= 0) {
+                                    showNotif("⚠ Gagal memperbarui buku.")
+                                } else {
+                                    showNotif("✓ Buku berhasil diperbarui!")
+                                    success = true
+                                }
 
                                 // Sync update to server if this book has serverId
                                 coroutineScope.launch(Dispatchers.IO) {
@@ -256,10 +305,11 @@ fun BookScreen() {
                                         if (serverId != null) {
                                             val service = createBookService()
                                             val payload = mapOf<String, Any?>(
+                                                "isbn" to updatedBook.isbn,
                                                 "title" to updatedBook.title,
                                                 "author" to updatedBook.author,
                                                 "publicationYear" to updatedBook.year.toIntOrNull(),
-                                                "quantity" to 1,
+                                                "stok" to 1,
                                                 "kategoriName" to updatedBook.category
                                             )
                                             service.updateBook(serverId, payload)
@@ -270,6 +320,10 @@ fun BookScreen() {
                                 }
                             }
                         }
+                    }
+
+                    // Jika sukses tambah/update (form lengkap dan tidak duplicate), refresh list dan reset form
+                    if (isFormComplete && success) {
                         refreshBooks()
                         currentView = "list"
                         resetForm()
@@ -496,6 +550,7 @@ fun BookDetailView(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
+            DetailRow(label = "ISBN", value = book.isbn)
             DetailRow(label = "Penulis", value = book.author)
             DetailRow(label = "Penerbit", value = book.publisher)
             DetailRow(label = "Tahun", value = book.year)
@@ -553,12 +608,14 @@ fun DetailRow(label: String, value: String) {
 @Composable
 fun AddEditBookView(
     isEdit: Boolean,
+    isbn: String,
     title: String,
     author: String,
     publisher: String,
     year: String,
     category: String,
     coverPath: String,
+    onIsbnChange: (String) -> Unit,
     onTitleChange: (String) -> Unit,
     onAuthorChange: (String) -> Unit,
     onPublisherChange: (String) -> Unit,
@@ -637,6 +694,15 @@ fun AddEditBookView(
 
             // Form Fields
             OutlinedTextField(
+                value = isbn,
+                onValueChange = onIsbnChange,
+                label = { Text("ISBN *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
                 label = { Text("Judul Buku *") },
@@ -708,7 +774,7 @@ fun AddEditBookView(
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = title.isNotEmpty() && author.isNotEmpty()
+                enabled = isbn.isNotEmpty() && title.isNotEmpty() && author.isNotEmpty()
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
