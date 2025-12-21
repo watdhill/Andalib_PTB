@@ -8,7 +8,7 @@ const anggotaRoutes = require('./routes/anggota');
 const returnsRoutes = require('./routes/return');
 const peminjamanRoutes = require('./routes/peminjaman');
 const bukuRoutes = require('./routes/buku');
-
+const returnNotificationRoutes = require('./routes/returnNotification');
 dotenv.config();
 
 const app = express();
@@ -27,7 +27,7 @@ app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
 app.use('/api/returns', returnsRoutes);
 app.use('/api/peminjaman', peminjamanRoutes); // Route untuk CRUD Peminjaman
 app.use('/api/buku', bukuRoutes); // Route untuk CRUD Buku
-
+app.use('/api/returnNotif', returnNotificationRoutes);
 // ========== NOTIFIKASI MEMBER: ROUTES ==========
 // Route untuk notifikasi penghapusan anggota
 const memberNotificationRoutes = require('./routes/memberNotification');
@@ -37,6 +37,8 @@ app.use('/api/member-notifications', memberNotificationRoutes);
 const { startCleanupScheduler } = require('./utils/notificationCleanup');
 // ================================================
 
+const { startNotificationCleanupJob } = require("./controllers/returnNotifController");
+startNotificationCleanupJob();
 // Basic route
 app.get('/', (req, res) => {
     res.send('Perpustakaan Backend API Running');

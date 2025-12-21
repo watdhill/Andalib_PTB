@@ -1,48 +1,44 @@
 package com.example.andalib.data.network
 
-import retrofit2.http.GET
-import retrofit2.http.POST
+import com.example.andalib.screen.pengembalian.ReturnNotifDeleteResponse
+import com.example.andalib.screen.pengembalian.ReturnNotifListResponse
+import com.example.andalib.screen.pengembalian.ReturnNotifMarkReadResponse
+import com.example.andalib.screen.pengembalian.UploadDamageProofResponse
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.PATCH
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
-import retrofit2.http.DELETE
-
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 // =========================================================
 // 1. MODEL PERMINTAAN/RESPONS API (SINKRONISASI)
 // =========================================================
 
-// Model data yang akan dikirim saat submit pengembalian
 data class ReturnRequest(
-    // Perbaikan: Sesuaikan dengan field backend
     val peminjamanId: Int,
-    val tanggalPengembalian: String, // Tanggal dalam format String (backend akan konversi)
-    val denda: Int, // Sesuai nama field di backend
-    val buktiKerusakanUrl: String? = null, // Opsional
-    val keterangan: String? = null // Opsional
+    val tanggalPengembalian: String,
+    val denda: Int,
+    val buktiKerusakanUrl: String? = null,
+    val keterangan: String? = null
 )
 
-// Model respons untuk daftar pinjaman
 data class PeminjamanResponse(
-    // Sinkron: Id pinjaman dari tabel Peminjaman
     val id: Int,
-    // Sinkron: Judul buku dari tabel Buku
     val judulBuku: String,
-    // Sinkron: Tanggal yang sudah diformat dari backend
     val tglPinjam: String,
     val jatuhTempo: String,
-    // Tambahan yang dikirim dari backend
     val author: String
 )
 
-// Model respons untuk detail anggota
 data class AnggotaResponse(
-    // Sinkron: Sesuai hasil mapping di returnController.js
     val nim: String,
-    val nama: String, // Menggunakan 'nama' dari hasil mapping controller
-    val email: String? // Tambahkan email jika diperlukan
+    val nama: String,
+    val email: String?
 )
 
-// Model respons status sederhana - TIDAK BERUBAH
 data class ReturnHistoryResponse(
     val id: Int,
     val peminjamanId: Int,
@@ -71,45 +67,74 @@ data class ReturnCreatedResponse(
     val keterangan: String?,
     val buktiKerusakanUrl: String?
 )
+typealias SubmitReturnResponse = ReturnStatusResponse
+
+data class UploadProofResponse(
+    val success: Boolean,
+    val url: String? = null,
+    val message: String? = null
+)
+
 
 // =========================================================
 // 2. INTERFACE API SERVICE (Retrofit Ready)
 // =========================================================
 
-/**
- * Interface ini mendefinisikan method yang berinteraksi dengan API server.
- */
 interface ApiService {
-    /**
-     * Mengambil daftar pinjaman aktif dari seorang anggota.
-     * Endpoint: GET /borrowings/active/{nim}
-     */
+
     @GET("returns/borrowings/active/{nim}")
     suspend fun fetchActiveLoans(@Path("nim") nim: String): List<PeminjamanResponse>
 
-    /**
-     * Endpoint untuk mencari anggota berdasarkan query.
-     * Endpoint: GET /members/search?query={query}
-     */
     @GET("returns/members/search")
     suspend fun searchMembers(@Query("query") query: String): List<AnggotaResponse>
 
     @GET("returns/history")
     suspend fun getReturnHistory(): List<ReturnHistoryResponse>
-    /**
-     * Mengirim data pengembalian ke server untuk diproses.
-     * Endpoint: POST /process
-     */
+
     @POST("returns/process")
     suspend fun submitReturn(@Body request: ReturnRequest): ReturnStatusResponse
 
-    /**
-     * Endpoint untuk mengupdate data pengembalian yang sudah ada.
-     * Endpoint: POST /update/{returnId}
-     */
     @POST("returns/update/{returnId}")
-    suspend fun updateReturn(@Path("returnId") returnId: String, @Body request: ReturnRequest): ReturnStatusResponse
+    suspend fun updateReturn(
+        @Path("returnId") returnId: String,
+        @Body request: ReturnRequest
+    ): ReturnStatusResponse
 
     @DELETE("returns/history/{id}")
     suspend fun deleteReturn(@Path("id") id: Int): ReturnStatusResponse
+
+    // ========= NOTIF API (Masih boleh ada, tapi UI lonceng sudah dihapus) =========
+    @GET("returnNotif")
+    suspend fun getReturnNotifs(
+        @Query("take") take: Int = 50
+    ): ReturnNotifListResponse
+
+    @PATCH("returnNotif/{id}/read")
+    suspend fun markReturnNotifRead(
+        @Path("id") id: Int
+    ): ReturnNotifMarkReadResponse
+
+    @DELETE("returnNotif/{id}")
+    suspend fun deleteReturnNotif(
+        @Path("id") id: Int
+    ): ReturnNotifDeleteResponse
+
+    @Multipart
+    @POST("returns/process")
+    suspend fun submitReturnMultipart(
+        @Part("peminjamanId") peminjamanId: okhttp3.RequestBody,
+        @Part("tanggalPengembalian") tanggalPengembalian: okhttp3.RequestBody,
+        @Part("denda") denda: okhttp3.RequestBody,
+        @Part("keterangan") keterangan: okhttp3.RequestBody?,
+        @Part buktiKerusakan: okhttp3.MultipartBody.Part?
+    ): SubmitReturnResponse
+
+    @Multipart
+    @POST("returns/{returnId}/damage-proof")
+    suspend fun uploadDamageProof(
+        @Path("returnId") returnId: Int,
+        @Part buktiKerusakan: okhttp3.MultipartBody.Part
+    ): UploadDamageProofResponse
+
+
 }
