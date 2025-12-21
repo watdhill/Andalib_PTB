@@ -55,9 +55,6 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.5")
 
-    // Coil untuk load gambar ← TAMBAHKAN INI
-    implementation("io.coil-kt:coil-compose:2.5.0")
-
     // Material Icons Extended ← TAMBAHKAN INI
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     implementation(libs.androidx.compose.foundation)
