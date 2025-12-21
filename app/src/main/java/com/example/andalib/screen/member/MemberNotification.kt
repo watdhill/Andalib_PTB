@@ -76,24 +76,3 @@ data class ApiResponse(
     val message: String
 )
 
-/**
- * Helper function untuk format relative time
- */
-fun formatRelativeTime(isoTimestamp: String): String {
-    return try {
-        val instant = java.time.Instant.parse(isoTimestamp)
-        val now = java.time.Instant.now()
-        val duration = java.time.Duration.between(instant, now)
-        
-        when {
-            duration.toMinutes() < 1 -> "Baru saja"
-            duration.toMinutes() < 60 -> "${duration.toMinutes()} menit yang lalu"
-            duration.toHours() < 24 -> "${duration.toHours()} jam yang lalu"
-            duration.toDays() < 7 -> "${duration.toDays()} hari yang lalu"
-            duration.toDays() < 30 -> "${duration.toDays() / 7} minggu yang lalu"
-            else -> "${duration.toDays() / 30} bulan yang lalu"
-        }
-    } catch (e: Exception) {
-        isoTimestamp
-    }
-}
