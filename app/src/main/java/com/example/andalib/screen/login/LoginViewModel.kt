@@ -57,16 +57,6 @@ class LoginViewModel(
                         // ✅ START NOTIFICATION SERVICE
                         NotificationPollingService.start(context)
                         
-                        // 🧪 TEST NOTIFICATION - Verify notification system works
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            val helper = com.example.andalib.utils.MemberNotificationHelper(context)
-                            helper.showNotification(
-                                title = "TEST: Notifikasi Berfungsi!",
-                                message = "Jika muncul popup, notif system OK ✅",
-                                notificationId = 9999
-                            )
-                        }, 2000) // 2 seconds after login
-                        
                         _loginState.value = LoginUiState.Success(loginBody.message ?: "Login berhasil!")
                     } else {
                         // Respons 2xx tapi token null

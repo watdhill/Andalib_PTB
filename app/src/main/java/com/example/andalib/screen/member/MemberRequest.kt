@@ -44,7 +44,8 @@ enum class Major {
     EKONOMI,
     MANAJEMEN,
     AKUNTANSI,
-    PETERNAKAN,
+    PRODUKSI_TERNAK,
+    NUTRISI_DAN_MAKANAN_TERNAK,
     ILMU_SEJARAH,
     SASTRA_INGGRIS,
     SASTRA_INDONESIA,
@@ -90,7 +91,9 @@ fun Faculty.getMajors(): List<Major> {
         Faculty.EKONOMI_BISNIS -> listOf(
             Major.EKONOMI, Major.MANAJEMEN, Major.AKUNTANSI
         )
-        Faculty.PETERNAKAN -> listOf(Major.PETERNAKAN)
+        Faculty.PETERNAKAN -> listOf(
+            Major.PRODUKSI_TERNAK, Major.NUTRISI_DAN_MAKANAN_TERNAK
+        )
         Faculty.ILMU_BUDAYA -> listOf(
             Major.ILMU_SEJARAH, Major.SASTRA_INGGRIS, Major.SASTRA_INDONESIA,
             Major.SASTRA_MINANGKABAU, Major.SASTRA_JEPANG
