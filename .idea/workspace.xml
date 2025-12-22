@@ -38,19 +38,12 @@
       <change beforePath="$PROJECT_DIR$/.gradle/8.13/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.13/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.13/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.13/fileHashes/resourceHashesCache.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/config.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/config.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Andalib_Auth_API/environments/Development.bru" beforeDir="false" afterPath="$PROJECT_DIR$/Andalib_Auth_API/environments/Development.bru" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/BookApi.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/BookApi.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/RetrofitClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/RetrofitClient.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/andalib_backend/controllers/memberNotificationController.js" beforeDir="false" afterPath="$PROJECT_DIR$/andalib_backend/controllers/memberNotificationController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/andalib_backend/routes/memberNotification.js" beforeDir="false" afterPath="$PROJECT_DIR$/andalib_backend/routes/memberNotification.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/MemberNotificationService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/data/network/MemberNotificationService.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/screen/BookScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/screen/BookScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/screen/pengembalian/ReturnScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/screen/pengembalian/ReturnScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/service/NotificationPollingService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/service/NotificationPollingService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/network_security_config.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/xml/network_security_config.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/local.properties" beforeDir="false" afterPath="$PROJECT_DIR$/local.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/utils/BookNotificationHelper.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/andalib/utils/BookNotificationHelper.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

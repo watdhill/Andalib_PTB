@@ -44,6 +44,11 @@ router.get('/', memberNotificationController.getAllNotifications);
 // Digunakan oleh: Saat user tap notifikasi
 router.put('/:id/read', memberNotificationController.markAsRead);
 
+// POST /api/member-notifications
+// Buat notifikasi baru (untuk book activities)
+// Digunakan oleh: Saat buku ditambah/diupdate/dihapus
+router.post('/', memberNotificationController.createBookNotification);
+
 // ============================================================
 // CATATAN PENTING:
 // ============================================================

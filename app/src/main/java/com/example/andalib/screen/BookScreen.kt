@@ -38,6 +38,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.andalib.data.network.createBookService
+import com.example.andalib.data.network.createMemberNotificationService
+import com.example.andalib.data.network.CreateNotificationRequest
+import com.example.andalib.data.TokenManager
 import com.example.andalib.saveImageToInternalStorage
 import com.example.andalib.ui.theme.AndalibDarkBlue
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +53,7 @@ fun BookScreen() {
     val context = LocalContext.current
     val database = remember { BookDatabase(context) }
     val bookNotificationHelper = remember { BookNotificationHelper(context) }
+    val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
 
     var books by remember { 
@@ -116,6 +120,27 @@ fun BookScreen() {
         formCategory = ""
         formCoverPath = ""
         formStok = ""
+    }
+    
+    // Helper function to send notification to server
+    suspend fun sendNotificationToServer(type: String, title: String, message: String, bookTitle: String, bookIsbn: String) {
+        try {
+            val token = tokenManager.getToken()
+            if (token != null) {
+                val service = createMemberNotificationService(token)
+                val request = CreateNotificationRequest(
+                    type = type,
+                    title = title,
+                    message = message,
+                    bookTitle = bookTitle,
+                    bookIsbn = bookIsbn
+                )
+                service.createNotification(request)
+                android.util.Log.d("BookScreen", "Notification sent to server: $type")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BookScreen", "Failed to send notification to server", e)
+        }
     }
 
     Scaffold(
@@ -238,10 +263,15 @@ fun BookScreen() {
                 onStokChange = { formStok = it },
                 onSave = {
                     val isFormComplete = formTitle.isNotEmpty() && formAuthor.isNotEmpty() && formIsbn.isNotEmpty()
+                    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                    val yearInt = formYear.toIntOrNull()
+                    val isYearValid = formYear.isEmpty() || (yearInt != null && yearInt >= 1000 && yearInt <= currentYear)
                     var success = false
 
                     if (!isFormComplete) {
                         showNotif("⚠ ISBN, Judul, dan Penulis harus diisi!")
+                    } else if (!isYearValid) {
+                        showNotif("⚠ Tahun terbit tidak valid! Tahun harus antara 1000-$currentYear")
                     } else if (currentView == "add") {
                         val isbnTaken = database.isbnExists(formIsbn)
                         if (isbnTaken) {
@@ -263,12 +293,25 @@ fun BookScreen() {
                                 showNotif("⚠ ISBN sudah digunakan! Gunakan ISBN yang berbeda.")
                             } else {
                                 showNotif("✓ Buku berhasil ditambahkan!")
-                                // Show notification in notification tray
+                                success = true
+                                
+                                // Send notification to server in background
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    sendNotificationToServer(
+                                        type = "BOOK_ADDED",
+                                        title = "Buku Baru Ditambahkan",
+                                        message = "\"$formTitle\" berhasil ditambahkan ke perpustakaan",
+                                        bookTitle = formTitle,
+                                        bookIsbn = formIsbn
+                                    )
+                                }
+                                
+                                // Show local notification
+                                android.util.Log.d("BookScreen", "Calling showBookNotification for: $formTitle")
                                 bookNotificationHelper.showBookNotification(
                                     BookNotificationHelper.TYPE_BOOK_ADDED,
                                     formTitle
                                 )
-                                success = true
                             }
 
                             // Try to sync to server in background
@@ -324,12 +367,24 @@ fun BookScreen() {
                                     showNotif("⚠ Gagal memperbarui buku.")
                                 } else {
                                     showNotif("✓ Buku berhasil diperbarui!")
-                                    // Show notification in notification tray
+                                    success = true
+                                    
+                                    // Send notification to server
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        sendNotificationToServer(
+                                            type = "BOOK_UPDATED",
+                                            title = "Buku Diperbarui",
+                                            message = "\"$formTitle\" berhasil diperbarui",
+                                            bookTitle = formTitle,
+                                            bookIsbn = formIsbn
+                                        )
+                                    }
+                                    
+                                    // Show local notification
                                     bookNotificationHelper.showBookNotification(
                                         BookNotificationHelper.TYPE_BOOK_UPDATED,
                                         formTitle
                                     )
-                                    success = true
                                 }
 
                                 // Sync update to server if this book has serverId
@@ -393,11 +448,24 @@ fun BookScreen() {
                         database.deleteBook(book.id)
                         refreshBooks()
                         showNotif("✓ Buku berhasil dihapus!")
-                        // Show notification in notification tray
+                        
+                        // Send notification to server
+                        coroutineScope.launch(Dispatchers.IO) {
+                            sendNotificationToServer(
+                                type = "BOOK_DELETED",
+                                title = "Buku Dihapus",
+                                message = "\"${book.title}\" telah dihapus dari perpustakaan",
+                                bookTitle = book.title,
+                                bookIsbn = book.isbn
+                            )
+                        }
+                        
+                        // Show local notification
                         bookNotificationHelper.showBookNotification(
                             BookNotificationHelper.TYPE_BOOK_DELETED,
                             book.title
                         )
+                        
                         currentView = "list"
                         selectedBook = null
                     }
@@ -504,14 +572,27 @@ fun BookScreen() {
 
                                 refreshBooks()
                                 showNotif("✓ Stok berhasil ditambahkan! (+$amount)")
-                                // Show notification in notification tray
+                                
+                                // Send notification to server and show local notification
                                 addStockBookInfo?.let { bookInfo ->
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        sendNotificationToServer(
+                                            type = "STOCK_ADDED",
+                                            title = "Stok Ditambahkan",
+                                            message = "Stok \"${bookInfo.title}\" berhasil ditambahkan (+$amount)",
+                                            bookTitle = bookInfo.title,
+                                            bookIsbn = bookInfo.isbn
+                                        )
+                                    }
+                                    
+                                    // Show local notification
                                     bookNotificationHelper.showBookNotification(
                                         BookNotificationHelper.TYPE_STOCK_ADDED,
                                         bookInfo.title,
                                         " (+$amount)"
                                     )
                                 }
+                                
                                 showAddStockDialog = false
                                 addStockBookInfo = null
                                 addStockIsbn = ""
@@ -986,6 +1067,10 @@ fun AddEditBookView(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val categories = listOf("Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Pendidikan", "Religi")
+    
+    // State untuk error tahun
+    var yearError by remember { mutableStateOf<String?>(null) }
+    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
 
     // State untuk menyimpan URI foto dari kamera
     var tempImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -1118,10 +1203,35 @@ fun AddEditBookView(
 
             OutlinedTextField(
                 value = year,
-                onValueChange = onYearChange,
+                onValueChange = { newValue ->
+                    // Hanya terima input angka
+                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                        onYearChange(newValue)
+                        
+                        // Validasi tahun
+                        yearError = when {
+                            newValue.isEmpty() -> null
+                            newValue.toIntOrNull() == null -> "Tahun harus berupa angka"
+                            newValue.toInt() > currentYear -> "Tahun tidak boleh lebih dari $currentYear"
+                            newValue.toInt() < 1000 -> "Tahun tidak valid"
+                            else -> null
+                        }
+                    }
+                },
                 label = { Text("Tahun Terbit") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = yearError != null,
+                supportingText = {
+                    yearError?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             )
             Spacer(modifier = Modifier.height(12.dp))
 
