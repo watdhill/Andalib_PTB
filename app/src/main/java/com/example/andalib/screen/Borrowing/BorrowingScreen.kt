@@ -43,9 +43,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Visibility
@@ -96,9 +96,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.andalib.AnggotaItem
-import com.example.andalib.Borrowing
-import com.example.andalib.BukuItem
 import com.example.andalib.createImageFile
 import com.example.andalib.getCurrentDate
 import com.example.andalib.getFutureDate
@@ -115,8 +112,6 @@ import java.io.File
 fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    // State dari ViewModel
     val borrowings = viewModel.borrowings
     val books = viewModel.books
     val members = viewModel.members
@@ -130,21 +125,16 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
     var showNotification by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
-
-    // Form States - Simplified
     var selectedMember by remember { mutableStateOf<AnggotaItem?>(null) }
     var selectedBook by remember { mutableStateOf<BukuItem?>(null) }
     var formIdentityPath by remember { mutableStateOf("") }
     var formBorrowDate by remember { mutableStateOf(getCurrentDate()) }
     var formReturnDate by remember { mutableStateOf(getFutureDate(7)) }
-
-    // Search states for dropdowns
     var memberSearchQuery by remember { mutableStateOf("") }
     var bookSearchQuery by remember { mutableStateOf("") }
     var showMemberDropdown by remember { mutableStateOf(false) }
     var showBookDropdown by remember { mutableStateOf(false) }
 
-    // Error handling
     LaunchedEffect(vmErrorMessage) {
         if (vmErrorMessage != null) {
             notificationMessage = "ERROR: $vmErrorMessage"
@@ -152,9 +142,7 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
         }
     }
 
-    // Search members when query changes - with debouncing
     LaunchedEffect(memberSearchQuery) {
-        // Tunggu 300ms setelah user berhenti mengetik
         kotlinx.coroutines.delay(300)
         if (memberSearchQuery.isNotEmpty()) {
             viewModel.searchMembers(memberSearchQuery)
@@ -163,9 +151,7 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
         }
     }
 
-    // Search books when query changes - with debouncing
     LaunchedEffect(bookSearchQuery) {
-        // Tunggu 300ms setelah user berhenti mengetik
         kotlinx.coroutines.delay(300)
         if (bookSearchQuery.isNotEmpty()) {
             viewModel.searchBooks(bookSearchQuery)
@@ -248,8 +234,8 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
                     action = {
-                        TextButton(onClick = { 
-                            showNotification = false 
+                        TextButton(onClick = {
+                            showNotification = false
                             viewModel.clearErrorMessage()
                         }) {
                             Text("OK", color = Color.White)
@@ -286,7 +272,7 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                     onAddClick = { currentView = "add" },
                     modifier = Modifier.padding(top = padding.calculateTopPadding())
                 )
-                
+
                 "detail" -> selectedBorrowing?.let { borrowing ->
                     Box(
                         modifier = Modifier
@@ -321,7 +307,7 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                     memberSearchQuery = memberSearchQuery,
                     members = members,
                     showMemberDropdown = showMemberDropdown,
-                    onMemberSearchChange = { 
+                    onMemberSearchChange = {
                         memberSearchQuery = it
                         showMemberDropdown = it.isNotEmpty()
                     },
@@ -346,7 +332,6 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                         showBookDropdown = false
                     },
                     onBookDropdownDismiss = { showBookDropdown = false },
-                    // Other fields
                     identityPath = formIdentityPath,
                     borrowDate = formBorrowDate,
                     returnDate = formReturnDate,
@@ -378,13 +363,11 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                                     }
                                 } else {
                                     selectedBorrowing?.let { borrowing ->
-                                        // Update borrowing data terlebih dahulu
                                         val updateSuccess = viewModel.updateBorrowing(
                                             id = borrowing.id,
                                             jatuhTempo = formReturnDate
                                         )
-                                        
-                                        // Jika ada KRS baru (path lokal), upload
+
                                         if (updateSuccess && formIdentityPath.startsWith("/data/")) {
                                             viewModel.uploadKrsWithPath(borrowing.id, formIdentityPath)
                                         } else {
@@ -451,9 +434,6 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
     }
 }
 
-// ============================================================
-// LIST VIEW
-// ============================================================
 
 @Composable
 fun BorrowingListView(
@@ -477,7 +457,6 @@ fun BorrowingListView(
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Title
                 Text(
                     text = "Peminjaman Buku",
                     modifier = Modifier.padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 8.dp),
@@ -486,7 +465,6 @@ fun BorrowingListView(
                     color = Color.Black
                 )
 
-                // Search Bar
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = onSearchChange,
@@ -512,7 +490,6 @@ fun BorrowingListView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Borrowing List
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -569,12 +546,10 @@ fun BorrowingCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Avatar + Borrower Info + Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar placeholder
                 Box(
                     modifier = Modifier
                         .size(50.dp)
@@ -592,7 +567,7 @@ fun BorrowingCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Borrower Info
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = borrowing.borrowerName,
@@ -626,7 +601,7 @@ fun BorrowingCard(
                     }
                 }
 
-                // Status Badge
+
                 val isReturned = borrowing.status == "DIKEMBALIKAN"
                 val statusColor = if (isReturned) Color(0xFF2196F3) else Color(0xFF4CAF50)
                 Box(
@@ -648,7 +623,6 @@ fun BorrowingCard(
             HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // View Detail Button - full width blue with press effect
             Button(
                 onClick = onDetailClick,
                 modifier = Modifier
@@ -678,9 +652,6 @@ fun BorrowingCard(
     }
 }
 
-// ============================================================
-// DETAIL VIEW 
-// ============================================================
 
 @Composable
 fun BorrowingDetailView(
@@ -696,7 +667,6 @@ fun BorrowingDetailView(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Avatar placeholder
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -711,9 +681,9 @@ fun BorrowingDetailView(
                 tint = AndalibDarkBlue
             )
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Text(
             text = borrowing.borrowerName,
             fontSize = 22.sp,
@@ -724,46 +694,56 @@ fun BorrowingDetailView(
             fontSize = 16.sp,
             color = AndalibGray
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Info Card
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                // Jurusan
+
                 DetailRowBorrowing(
                     icon = Icons.AutoMirrored.Filled.Notes,
                     label = "Jurusan",
                     value = borrowing.major.replace("_", " ").ifEmpty { "-" }
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = Color(0xFFE0E0E0))
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                // Buku
+
+
                 DetailRowBorrowing(
                     icon = Icons.AutoMirrored.Filled.MenuBook,
                     label = "Judul Buku",
                     value = borrowing.bookTitle
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
-                // Pengarang
+
+
                 DetailRowBorrowing(
                     icon = Icons.Default.Person,
                     label = "Pengarang",
                     value = borrowing.author.ifEmpty { "-" }
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
-                // Stok Buku
+
+
+                if (borrowing.isbn.isNotEmpty()) {
+                    DetailRowBorrowing(
+                        icon = Icons.Default.QrCode,
+                        label = "ISBN",
+                        value = borrowing.isbn
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Inventory,
@@ -789,32 +769,32 @@ fun BorrowingDetailView(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = Color(0xFFE0E0E0))
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                // Tanggal Pinjam
+
+
                 DetailRowBorrowing(
                     icon = Icons.Default.CalendarToday,
                     label = "Tanggal Pinjam",
                     value = borrowing.borrowDate
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
-                // Jatuh Tempo
+
+
                 DetailRowBorrowing(
                     icon = Icons.Default.Event,
                     label = "Jatuh Tempo",
                     value = borrowing.returnDate
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = Color(0xFFE0E0E0))
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                // Status
+
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Info,
@@ -843,10 +823,10 @@ fun BorrowingDetailView(
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
-        // Action Buttons
+
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -896,15 +876,11 @@ fun DetailRowBorrowing(icon: androidx.compose.ui.graphics.vector.ImageVector, la
     }
 }
 
-// ============================================================
-// ADD/EDIT VIEW WITH AUTOCOMPLETE DROPDOWNS
-// ============================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditBorrowingViewNew(
     isEdit: Boolean,
-    // Member selection
+
     selectedMember: AnggotaItem?,
     memberSearchQuery: String,
     members: List<AnggotaItem>,
@@ -912,7 +888,7 @@ fun AddEditBorrowingViewNew(
     onMemberSearchChange: (String) -> Unit,
     onMemberSelect: (AnggotaItem) -> Unit,
     onMemberDropdownDismiss: () -> Unit,
-    // Book selection
+
     selectedBook: BukuItem?,
     bookSearchQuery: String,
     books: List<BukuItem>,
@@ -920,7 +896,7 @@ fun AddEditBorrowingViewNew(
     onBookSearchChange: (String) -> Unit,
     onBookSelect: (BukuItem) -> Unit,
     onBookDropdownDismiss: () -> Unit,
-    // Other fields
+
     identityPath: String,
     borrowDate: String,
     returnDate: String,
@@ -967,7 +943,7 @@ fun AddEditBorrowingViewNew(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // SECTION: PILIH ANGGOTA
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -982,7 +958,7 @@ fun AddEditBorrowingViewNew(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Search field with dropdown
+
                     ExposedDropdownMenuBox(
                         expanded = showMemberDropdown && members.isNotEmpty(),
                         onExpandedChange = { }
@@ -998,7 +974,7 @@ fun AddEditBorrowingViewNew(
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (memberSearchQuery.isNotEmpty() && !isEdit) {
-                                    IconButton(onClick = { 
+                                    IconButton(onClick = {
                                         onMemberSearchChange("")
                                         onMemberSelect(AnggotaItem("", "", null, null, null))
                                     }) {
@@ -1008,7 +984,7 @@ fun AddEditBorrowingViewNew(
                             },
                             colors = focusedColors
                         )
-                        
+
                         ExposedDropdownMenu(
                             expanded = showMemberDropdown && members.isNotEmpty() && !isEdit,
                             onDismissRequest = onMemberDropdownDismiss
@@ -1046,7 +1022,7 @@ fun AddEditBorrowingViewNew(
                         }
                     }
 
-                    // Show selected member info
+
                     if (selectedMember != null && selectedMember.nim.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
@@ -1063,7 +1039,7 @@ fun AddEditBorrowingViewNew(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Avatar dengan inisial
+
                                 Box(
                                     modifier = Modifier
                                         .size(48.dp)
@@ -1078,10 +1054,10 @@ fun AddEditBorrowingViewNew(
                                         fontSize = 18.sp
                                     )
                                 }
-                                
+
                                 Spacer(modifier = Modifier.width(12.dp))
-                                
-                                // Info anggota
+
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = selectedMember.name,
@@ -1121,8 +1097,8 @@ fun AddEditBorrowingViewNew(
                                         )
                                     }
                                 }
-                                
-                                // Checkmark
+
+
                                 Icon(
                                     Icons.Default.CheckCircle,
                                     contentDescription = "Dipilih",
@@ -1136,7 +1112,7 @@ fun AddEditBorrowingViewNew(
             }
         }
 
-        // SECTION: PILIH BUKU
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1151,7 +1127,7 @@ fun AddEditBorrowingViewNew(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Search field with dropdown
+
                     ExposedDropdownMenuBox(
                         expanded = showBookDropdown && books.isNotEmpty(),
                         onExpandedChange = { }
@@ -1167,7 +1143,7 @@ fun AddEditBorrowingViewNew(
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (bookSearchQuery.isNotEmpty() && !isEdit) {
-                                    IconButton(onClick = { 
+                                    IconButton(onClick = {
                                         onBookSearchChange("")
                                         onBookSelect(BukuItem(0, "", "", 0))
                                     }) {
@@ -1177,7 +1153,7 @@ fun AddEditBorrowingViewNew(
                             },
                             colors = focusedColors
                         )
-                        
+
                         ExposedDropdownMenu(
                             expanded = showBookDropdown && books.isNotEmpty() && !isEdit,
                             onDismissRequest = onBookDropdownDismiss
@@ -1187,6 +1163,13 @@ fun AddEditBorrowingViewNew(
                                     text = {
                                         Column {
                                             Text(book.title, fontWeight = FontWeight.Bold)
+                                            if (book.isbn.isNotEmpty()) {
+                                                Text(
+                                                    "ISBN: ${book.isbn}",
+                                                    fontSize = 11.sp,
+                                                    color = AndalibDarkBlue
+                                                )
+                                            }
                                             Text(
                                                 "oleh ${book.author} • Stok: ${book.stok}",
                                                 fontSize = 12.sp,
@@ -1194,9 +1177,9 @@ fun AddEditBorrowingViewNew(
                                             )
                                         }
                                     },
-                                    onClick = { 
+                                    onClick = {
                                         if (book.stok > 0) {
-                                            onBookSelect(book) 
+                                            onBookSelect(book)
                                         }
                                     },
                                     enabled = book.stok > 0,
@@ -1212,7 +1195,7 @@ fun AddEditBorrowingViewNew(
                         }
                     }
 
-                    // Show selected book info
+
                     if (selectedBook != null && selectedBook.id != 0) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
@@ -1229,7 +1212,6 @@ fun AddEditBorrowingViewNew(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Book icon placeholder
                                 Box(
                                     modifier = Modifier
                                         .size(48.dp)
@@ -1244,10 +1226,10 @@ fun AddEditBorrowingViewNew(
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
-                                
+
                                 Spacer(modifier = Modifier.width(12.dp))
-                                
-                                // Info buku
+
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = selectedBook.title,
@@ -1255,13 +1237,21 @@ fun AddEditBorrowingViewNew(
                                         fontSize = 15.sp,
                                         color = Color.Black
                                     )
+                                    if (selectedBook.isbn.isNotEmpty()) {
+                                        Text(
+                                            text = "ISBN: ${selectedBook.isbn}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = AndalibDarkBlue
+                                        )
+                                    }
                                     Text(
                                         text = "oleh ${selectedBook.author}",
                                         fontSize = 12.sp,
                                         color = AndalibGray
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    // Badge stok
+
                                     val stokColor = if (selectedBook.stok > 0) Color(0xFF4CAF50) else Color(0xFFF44336)
                                     Box(
                                         modifier = Modifier
@@ -1279,8 +1269,8 @@ fun AddEditBorrowingViewNew(
                                         )
                                     }
                                 }
-                                
-                                // Checkmark
+
+
                                 Icon(
                                     Icons.Default.CheckCircle,
                                     contentDescription = "Dipilih",
@@ -1294,11 +1284,10 @@ fun AddEditBorrowingViewNew(
             }
         }
 
-        // SECTION: TANGGAL
         item {
             var showBorrowDatePicker by remember { mutableStateOf(false) }
             var showReturnDatePicker by remember { mutableStateOf(false) }
-            
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1351,7 +1340,7 @@ fun AddEditBorrowingViewNew(
                                 }
                             }
                         }
-                        
+
                         // Jatuh Tempo
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -1390,8 +1379,8 @@ fun AddEditBorrowingViewNew(
                     }
                 }
             }
-            
-            // DatePicker Dialog untuk Tanggal Pinjam
+
+
             if (showBorrowDatePicker) {
                 val datePickerState = rememberDatePickerState()
                 DatePickerDialog(
@@ -1417,8 +1406,8 @@ fun AddEditBorrowingViewNew(
                     DatePicker(state = datePickerState)
                 }
             }
-            
-            // DatePicker Dialog untuk Jatuh Tempo
+
+
             if (showReturnDatePicker) {
                 val datePickerState = rememberDatePickerState()
                 DatePickerDialog(
@@ -1446,7 +1435,6 @@ fun AddEditBorrowingViewNew(
             }
         }
 
-        // SECTION: UPLOAD KRS (Optional)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1482,8 +1470,6 @@ fun AddEditBorrowingViewNew(
                                 }
                             }
                         } else {
-                            // Remote file from backend - use AsyncImage
-                            // If path starts with /uploads/, prepend base URL
                             val krsUrl = if (identityPath.startsWith("/uploads/")) {
                                 "http://10.0.2.2:3000$identityPath"
                             } else {
@@ -1514,13 +1500,13 @@ fun AddEditBorrowingViewNew(
             }
         }
 
-        // SAVE BUTTON
+
         item {
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = selectedMember != null && selectedMember.nim.isNotEmpty() && 
-                         selectedBook != null && selectedBook.id != 0,
+                enabled = selectedMember != null && selectedMember.nim.isNotEmpty() &&
+                        selectedBook != null && selectedBook.id != 0,
                 colors = ButtonDefaults.buttonColors(containerColor = AndalibDarkBlue)
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
@@ -1534,7 +1520,7 @@ fun AddEditBorrowingViewNew(
         }
     }
 
-    // Image Source Dialog
+
     if (showImageSourceDialog) {
         AlertDialog(
             onDismissRequest = { showImageSourceDialog = false },

@@ -8,13 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.andalib.AnggotaItem
-import com.example.andalib.Book
 import com.example.andalib.BookDatabase
-import com.example.andalib.Borrowing
-import com.example.andalib.BukuItem
-import com.example.andalib.CreateBorrowingRequest
-import com.example.andalib.UpdateBorrowingRequest
 import com.example.andalib.data.TokenManager
 import com.example.andalib.data.network.BorrowingApi
 import com.example.andalib.data.network.createBorrowingService
@@ -35,9 +29,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
     private val api: BorrowingApi = createBorrowingService(tokenManager)
     private val bookDatabase = BookDatabase(context) // Database lokal untuk buku
 
-    // =========================================================
-    // STATE UNTUK UI
-    // =========================================================
 
     var borrowings by mutableStateOf(emptyList<Borrowing>())
         private set
@@ -54,7 +45,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    // Selected items untuk form
     var selectedBook by mutableStateOf<BukuItem?>(null)
         private set
 
@@ -67,9 +57,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         loadMembers()
     }
 
-    // =========================================================
-    // LOAD DATA
-    // =========================================================
 
     fun loadBorrowings() {
         viewModelScope.launch {
@@ -90,14 +77,9 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Mengambil semua buku dari backend API
-     * Jika gagal, fallback ke database lokal
-     */
     fun loadBooks() {
         viewModelScope.launch {
             try {
-                // Coba ambil dari backend dulu
                 val response = api.getAllBooks()
                 android.util.Log.d("BorrowingVM", "Backend response: ${response.code()} - ${response.message()}")
                 if (response.isSuccessful && response.body() != null) {
@@ -106,12 +88,10 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                     books = backendBooks
                 } else {
                     android.util.Log.w("BorrowingVM", "Backend failed, trying local DB...")
-                    // Fallback ke database lokal
                     loadBooksFromLocalDb()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("BorrowingVM", "Backend error: ${e.message}, trying local DB...")
-                // Fallback ke database lokal jika network error
                 loadBooksFromLocalDb()
             }
         }
@@ -128,7 +108,8 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                     id = book.id,
                     title = book.title,
                     author = book.author,
-                    stok = 1
+                    stok = book.stok,
+                    isbn = book.isbn
                 )
             }
         } catch (e: Exception) {
@@ -151,10 +132,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
-
-    // =========================================================
-    // SEARCH
-    // =========================================================
 
     fun searchBorrowings(query: String) {
         if (query.isEmpty()) {
@@ -193,7 +170,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                     members = response.body()!!
                 }
             } catch (e: Exception) {
-                // Silent fail
             }
         }
     }
@@ -206,19 +182,16 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
-                // Coba search dari backend dulu
                 val response = api.searchBooks(query)
                 if (response.isSuccessful && response.body() != null) {
                     val backendBooks = response.body()!!
                     android.util.Log.d("BorrowingVM", "Backend search '$query' found ${backendBooks.size} books")
                     books = backendBooks
                 } else {
-                    // Fallback ke database lokal
                     searchBooksFromLocalDb(query)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("BorrowingVM", "Backend search error: ${e.message}")
-                // Fallback ke database lokal
                 searchBooksFromLocalDb(query)
             }
         }
@@ -235,7 +208,8 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                     id = book.id,
                     title = book.title,
                     author = book.author,
-                    stok = 1
+                    stok = book.stok,
+                    isbn = book.isbn
                 )
             }
         } catch (e: Exception) {
@@ -243,9 +217,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Membuat peminjaman baru tanpa upload KRS
-     */
     suspend fun createBorrowing(
         nim: String,
         bukuId: Int,
@@ -253,27 +224,33 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         tanggalPinjam: String? = null
     ): Boolean {
         return try {
-            android.util.Log.d("BorrowingVM", "=== CREATE BORROWING ===")
+            android.util.Log.d("BorrowingVM", "=== CREATE BORROWING (Basic) ===")
             android.util.Log.d("BorrowingVM", "NIM: $nim")
             android.util.Log.d("BorrowingVM", "BukuId: $bukuId")
             android.util.Log.d("BorrowingVM", "JatuhTempo: $jatuhTempo")
             android.util.Log.d("BorrowingVM", "TanggalPinjam: $tanggalPinjam")
-            
+
+            val adminId = tokenManager.getAdminId()
+            android.util.Log.d("BorrowingVM", "AdminId: $adminId")
+
+
             val request = CreateBorrowingRequest(
                 nim = nim,
                 bukuId = bukuId,
                 jatuhTempo = jatuhTempo,
-                tanggalPinjam = tanggalPinjam
+                tanggalPinjam = tanggalPinjam,
+                adminId = adminId
             )
+
             val response = api.createBorrowing(request)
-            
+
             android.util.Log.d("BorrowingVM", "Response code: ${response.code()}")
             android.util.Log.d("BorrowingVM", "Response body: ${response.body()}")
             android.util.Log.d("BorrowingVM", "Error body: ${response.errorBody()?.string()}")
-            
+
             if (response.isSuccessful && response.body()?.success == true) {
                 loadBorrowings()
-                loadBooks() // Refresh stok buku
+                loadBooks()
                 true
             } else {
                 errorMessage = "Gagal menambah: ${response.body()?.message ?: response.message()}"
@@ -287,9 +264,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Membuat peminjaman baru dengan upload KRS
-     */
     suspend fun createBorrowingWithKrs(
         nim: String,
         bukuId: Int,
@@ -298,6 +272,8 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         krsUri: Uri?
     ): Boolean {
         return try {
+            android.util.Log.d("BorrowingVM", "=== CREATE BORROWING WITH KRS (Uri) ===")
+
             val nimBody = nim.toRequestBody("text/plain".toMediaTypeOrNull())
             val bukuIdBody = bukuId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             val jatuhTempoBody = jatuhTempo.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -312,14 +288,20 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
 
+            val adminId = tokenManager.getAdminId()
+            val adminIdBody = adminId?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            android.util.Log.d("BorrowingVM", "AdminId: $adminId")
+
             val response = api.createBorrowingWithKrs(
                 nim = nimBody,
                 bukuId = bukuIdBody,
                 jatuhTempo = jatuhTempoBody,
                 tanggalPinjam = tanggalPinjamBody,
-                adminId = null,
+                adminId = adminIdBody,
                 krsImage = krsImagePart
             )
+
+            android.util.Log.d("BorrowingVM", "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body()?.success == true) {
                 loadBorrowings()
@@ -335,9 +317,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Membuat peminjaman baru dengan upload KRS dari file path
-     */
     suspend fun createBorrowingWithKrsPath(
         nim: String,
         bukuId: Int,
@@ -346,6 +325,8 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         krsPath: String
     ): Boolean {
         return try {
+            android.util.Log.d("BorrowingVM", "=== CREATE BORROWING WITH KRS (Path) ===")
+
             val nimBody = nim.toRequestBody("text/plain".toMediaTypeOrNull())
             val bukuIdBody = bukuId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             val jatuhTempoBody = jatuhTempo.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -362,15 +343,19 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                 android.util.Log.d("BorrowingVM", "KRS Part created: ${file.name}")
             }
 
+            val adminId = tokenManager.getAdminId()
+            val adminIdBody = adminId?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+            android.util.Log.d("BorrowingVM", "AdminId: $adminId")
+
             val response = api.createBorrowingWithKrs(
                 nim = nimBody,
                 bukuId = bukuIdBody,
                 jatuhTempo = jatuhTempoBody,
                 tanggalPinjam = tanggalPinjamBody,
-                adminId = null,
+                adminId = adminIdBody,
                 krsImage = krsImagePart
             )
-            
+
             android.util.Log.d("BorrowingVM", "Response code: ${response.code()}")
             android.util.Log.d("BorrowingVM", "Response body: ${response.body()}")
 
@@ -390,9 +375,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // =========================================================
-    // UPDATE PEMINJAMAN
-    // =========================================================
 
     suspend fun updateBorrowing(
         id: Int,
@@ -418,9 +400,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Upload KRS untuk peminjaman yang sudah ada
-     */
     suspend fun uploadKrs(id: Int, krsUri: Uri): Boolean {
         return try {
             val file = uriToFile(krsUri)
@@ -446,17 +425,13 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Upload KRS untuk peminjaman yang sudah ada menggunakan file path
-     */
     suspend fun uploadKrsWithPath(id: Int, krsPath: String): Boolean {
         return try {
-            // Cek apakah ini path lokal atau path server
+
             if (!krsPath.startsWith("/data/")) {
-                // Ini path server, tidak perlu upload ulang
                 return true
             }
-            
+
             val file = File(krsPath)
             if (!file.exists()) {
                 errorMessage = "File KRS tidak ditemukan"
@@ -471,7 +446,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
 
             val response = api.uploadKrs(id, krsImagePart)
             android.util.Log.d("BorrowingVM", "Upload response: ${response.code()}")
-            
+
             if (response.isSuccessful && response.body()?.success == true) {
                 loadBorrowings()
                 true
@@ -487,9 +462,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // =========================================================
-    // DELETE PEMINJAMAN
-    // =========================================================
 
     suspend fun deleteBorrowing(id: Int): Boolean {
         return try {
@@ -508,9 +480,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // =========================================================
-    // HELPER FUNCTIONS
-    // =========================================================
 
     fun selectBook(book: BukuItem?) {
         selectedBook = book
@@ -524,9 +493,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         errorMessage = null
     }
 
-    /**
-     * Konversi Uri ke File
-     */
     private fun uriToFile(uri: Uri): File? {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
@@ -541,23 +507,14 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // =========================================================
-    // LEGACY SUPPORT (untuk kompatibilitas dengan BorrowingScreen lama)
-    // =========================================================
-
-    /**
-     * Legacy: Create borrowing dari object Borrowing
-     * Digunakan oleh BorrowingScreen lama
-     */
     suspend fun createBorrowing(newBorrowing: Borrowing): Boolean {
-        // Cari buku berdasarkan title
+
         val book = books.find { it.title == newBorrowing.bookTitle }
         if (book == null) {
             errorMessage = "Buku '${newBorrowing.bookTitle}' tidak ditemukan. Silakan pilih dari daftar buku."
             return false
         }
 
-        // Cari member berdasarkan NIM
         val member = members.find { it.nim == newBorrowing.nim }
         if (member == null) {
             errorMessage = "Anggota dengan NIM '${newBorrowing.nim}' tidak ditemukan. Silakan pilih dari daftar anggota."
@@ -572,10 +529,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
-    /**
-     * Legacy: Update borrowing dari object Borrowing
-     * Digunakan oleh BorrowingScreen lama
-     */
+
     suspend fun updateBorrowing(borrowing: Borrowing): Boolean {
         return updateBorrowing(
             id = borrowing.id,
