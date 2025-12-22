@@ -9,7 +9,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.Response
 
-private const val BASE_URL = "http://192.168.1.20:3000/api/"
+private const val BASE_URL = "http://192.168.1.19:3000/api/"
 
 fun createSimpleRetrofit(): Retrofit {
     return Retrofit.Builder()

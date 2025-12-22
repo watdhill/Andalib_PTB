@@ -5,14 +5,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
-import okio.BufferedSink
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.asRequestBody
 fun Context.getFileName(uri: Uri): String {
     var name = "bukti_${System.currentTimeMillis()}.jpg"
     val cursor = contentResolver.query(uri, null, null, null, null)

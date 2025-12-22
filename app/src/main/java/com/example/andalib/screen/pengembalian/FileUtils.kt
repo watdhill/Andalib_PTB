@@ -11,7 +11,7 @@ fun createCameraImageUri(context: Context): Uri {
 
     return FileProvider.getUriForFile(
         context,
-        "${context.packageName}.provider", // ✅ SAMA seperti modul anggota
+        "${context.packageName}.provider",
         imageFile
     )
 }

@@ -33,20 +33,44 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 }).single("buktiKerusakan");
 
-// routes
+// SEARCH + ACTIVE LOANS
 router.get("/members/search", authenticateToken, isAdmin, returnController.searchMembers);
 router.get("/borrowings/active/:nim", authenticateToken, isAdmin, returnController.getActiveBorrowings);
 
-router.post("/process", authenticateToken, isAdmin, upload, returnController.createReturn);
+// UPLOAD BUKTI SAJA (tanpa membuat pengembalian)
+router.post(
+  "/damage-proof",
+  authenticateToken,
+  isAdmin,
+  returnController.uploadDamageProof,
+  returnController.uploadDamageProofOnly
+);
 
-// upload/update bukti khusus
-router.post("/:returnId/damage-proof", authenticateToken, isAdmin, upload, returnController.updateDamageProof);
+// CREATE RETURN (boleh JSON berisi buktiKerusakanUrl, atau multipart bawa file)
+router.post(
+  "/process",
+  authenticateToken,
+  isAdmin,
+  returnController.uploadDamageProof,
+  returnController.createReturn
+);
 
+// UPDATE FILE BUKTI (ganti bukti pada pengembalian yang sudah ada)
+router.put(
+  "/update-damage-proof/:returnId",
+  authenticateToken,
+  isAdmin,
+  returnController.uploadDamageProof,
+  returnController.updateDamageProof
+);
+
+// HISTORY
 router.get("/history", authenticateToken, isAdmin, returnController.getReturnHistory);
 
-// update data (tanpa file)
+// UPDATE RETURN DATA
 router.post("/update/:returnId", authenticateToken, isAdmin, returnController.updateReturn);
 
+// DELETE RETURN
 router.delete("/history/:id", authenticateToken, isAdmin, returnController.deleteReturn);
 
 module.exports = router;

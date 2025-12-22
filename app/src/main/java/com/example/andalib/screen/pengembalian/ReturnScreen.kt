@@ -2,9 +2,6 @@ package com.example.andalib.screen.pengembalian
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -104,8 +101,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -119,6 +114,8 @@ import com.example.andalib.data.network.ReturnHistoryResponse
 import com.example.andalib.data.network.ReturnRequest
 import com.example.andalib.data.network.createApiService
 import com.example.andalib.data.network.uriToMultipart
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -128,48 +125,17 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import android.app.DatePickerDialog as AndroidDatePickerDialog
-import com.google.gson.annotations.SerializedName
+
 // =========================================================
-// 0. (MODEL NOTIF API) - masih boleh ada, tapi UI lonceng sudah dihapus
+// 0. (MODEL UPLOAD RESPONSE) - tetap dipakai untuk upload bukti kerusakan
 // =========================================================
-data class ReturnNotifItem(
-    val id: Int,
-    val adminId: Int,
-    val type: String,
-    val title: String,
-    val message: String,
-    val metadata: String? = null,
-    val isRead: Boolean,
-    val readAt: String? = null,
-    val createdAt: String
-)
-
-data class ReturnNotifListResponse(
-    val success: Boolean,
-    val data: List<ReturnNotifItem>
-)
-
-data class ReturnNotifMarkReadResponse(
-    val success: Boolean,
-    val updated: Int
-)
-
-data class ReturnNotifDeleteResponse(
-    val success: Boolean
-)
-
-
-// ReturnService.kt (com.example.andalib.data.network)
-
 data class UploadDamageProofResponse(
     @SerializedName("success")
     val success: Boolean,
 
-    // kalau backend mengirim "buktiKerusakanUrl"
     @SerializedName("buktiKerusakanUrl")
     val buktiKerusakanUrl: String? = null,
 
-    // kalau backend mengirim "url" (opsional, biar aman)
     @SerializedName("url")
     val url: String? = null,
 
@@ -177,66 +143,48 @@ data class UploadDamageProofResponse(
     val message: String? = null
 )
 
-
-
 // =========================================================
-// 0B. SYSTEM NOTIFICATION HELPERS (HEADS-UP)
+// 0B. FIREBASE FCM SETUP (permission + token)
 // =========================================================
-private const val RETURN_NOTIF_CHANNEL_ID = "return_notif_channel_v2"
+@Composable
+private fun FirebaseNotificationSetup(
+    onTokenReady: ((String) -> Unit)? = null
+) {
+    val context = LocalContext.current
 
-private fun ensureReturnNotifChannel(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val channel = NotificationChannel(
-            RETURN_NOTIF_CHANNEL_ID,
-            "Notifikasi Pengembalian",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifikasi bukti kerusakan/pengembalian"
-            enableVibration(true)
-            setShowBadge(true)
-        }
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(channel)
+    // Request permission POST_NOTIFICATIONS untuk Android 13+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        Log.d("FCM", "POST_NOTIFICATIONS granted=$granted")
     }
-}
 
-private fun canPostNotifications(context: Context): Boolean {
-    return if (Build.VERSION.SDK_INT >= 33) {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    } else true
-}
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
 
-@SuppressLint("MissingPermission")
-private fun showProofUploadedHeadsUp(context: Context) {
-    ensureReturnNotifChannel(context)
-    if (!canPostNotifications(context)) return
+            if (!granted) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
 
-    val notif = NotificationCompat.Builder(context, RETURN_NOTIF_CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
-        .setContentTitle("Bukti kerusakan berhasil dipilih")
-        .setContentText("Silakan lanjutkan proses pengembalian.")
-        .setStyle(
-            NotificationCompat.BigTextStyle().bigText(
-                "Bukti kerusakan berhasil dipilih. Silakan lanjutkan proses pengembalian."
-            )
-        )
-        .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setDefaults(NotificationCompat.DEFAULT_ALL)
-        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        .setAutoCancel(true)
-        .build()
+        // Ambil token FCM
+        FirebaseMessaging.getInstance().token
+            .addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    Log.e("FCM", "Fetching FCM token failed", task.exception)
+                    return@addOnCompleteListener
+                }
+                val token = task.result
+                Log.d("FCM", "FCM token: $token")
+                onTokenReady?.invoke(token)
 
-    try {
-        NotificationManagerCompat.from(context).notify(
-            (System.currentTimeMillis() % Int.MAX_VALUE).toInt(),
-            notif
-        )
-    } catch (se: SecurityException) {
-        Log.e("ReturnNotif", "No notification permission: ${se.message}")
+                // Jika Anda punya endpoint untuk simpan token ke backend,
+                // panggil di luar sini (misalnya di ReturnScreen setelah token didapat).
+            }
     }
 }
 
@@ -899,6 +847,17 @@ private fun SimpleInfoDialog(
 // =========================================================
 @Composable
 fun ReturnScreen() {
+    // Setup FCM (permission + token)
+    FirebaseNotificationSetup(
+        onTokenReady = { token ->
+            // Jika Anda memiliki endpoint backend untuk menyimpan token admin:
+            // panggil API di sini (opsional).
+            // Contoh pseudo:
+            // coroutineScope.launch { apiService.registerFcmToken(RegisterTokenRequest(token)) }
+            Log.d("FCM", "Token ready (ReturnScreen): $token")
+        }
+    )
+
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val apiService: ApiService = remember { createApiService(tokenManager) }
@@ -1142,7 +1101,7 @@ private fun ReturnListContent(
 }
 
 // =========================================================
-// 5. RETURN ADD (FIXED)
+// 5. RETURN ADD (notifikasi lokal dihapus; flow return tetap sama)
 // =========================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1172,7 +1131,7 @@ private fun ReturnAddContent(
     var availableBorrowings by remember { mutableStateOf<List<ActiveBorrowing>>(emptyList()) }
     var isLoadingBorrowings by remember { mutableStateOf(false) }
 
-    // Bukti (lokal saja dulu). Upload dilakukan setelah return dibuat agar punya returnId.
+    // Bukti lokal, upload setelah return dibuat (punya returnId)
     var proofLocalUri by remember { mutableStateOf<Uri?>(null) }
 
     var description by remember { mutableStateOf("") }
@@ -1187,26 +1146,6 @@ private fun ReturnAddContent(
     var datePickerTarget by remember { mutableStateOf<String?>(null) }
 
     val isButtonEnabled = selectedMember != null && selectedBorrowing != null
-
-    // permission launcher untuk heads-up notif saat pilih bukti
-    var pendingProofNotif by remember { mutableStateOf(false) }
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted && pendingProofNotif) {
-            showProofUploadedHeadsUp(context)
-        }
-        pendingProofNotif = false
-    }
-
-    fun triggerProofHeadsUp() {
-        if (canPostNotifications(context)) {
-            showProofUploadedHeadsUp(context)
-        } else if (Build.VERSION.SDK_INT >= 33) {
-            pendingProofNotif = true
-            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
 
     val galleryLauncher = rememberLauncherForActivityResult(contract = GetContent()) { uri ->
         if (uri != null) {
@@ -1284,7 +1223,7 @@ private fun ReturnAddContent(
         }
     }
 
-    // 3. SUBMIT PENGEMBALIAN (FIX: create dulu → upload proof pakai returnId)
+    // 3. SUBMIT PENGEMBALIAN (create → upload proof → update)
     val handleSubmit: () -> Unit = handleSubmit@{
         if (selectedBorrowing == null || selectedMember == null) return@handleSubmit
 
@@ -1300,7 +1239,6 @@ private fun ReturnAddContent(
 
         coroutineScope.launch {
             try {
-                // Step 1: create return tanpa bukti dulu
                 val createRequest = ReturnRequest(
                     peminjamanId = selectedBorrowing!!.borrowingId.toInt(),
                     tanggalPengembalian = returnDate,
@@ -1318,7 +1256,6 @@ private fun ReturnAddContent(
                     return@launch
                 }
 
-                // Step 2: kalau ada bukti, upload pakai returnId
                 var finalProofUrlFull: String? = null
                 if (proofLocalUri != null) {
                     try {
@@ -1328,11 +1265,9 @@ private fun ReturnAddContent(
                             buktiKerusakan = part
                         )
 
-                        // asumsi model UploadDamageProofResponse punya: success, buktiKerusakanUrl, message
                         if (uploadResp.success && !uploadResp.buktiKerusakanUrl.isNullOrBlank()) {
                             finalProofUrlFull = normalizeToFullUrl(uploadResp.buktiKerusakanUrl)
 
-                            // Step 3: update return agar url tersimpan di DB (pakai endpoint updateReturn)
                             val updateReq = createRequest.copy(
                                 buktiKerusakanUrl = uploadResp.buktiKerusakanUrl
                             )
@@ -1342,11 +1277,9 @@ private fun ReturnAddContent(
                             }
                         } else {
                             Log.e("ReturnAdd", "Upload bukti gagal: ${uploadResp.message}")
-                            // bukti opsional -> return tetap dianggap berhasil dibuat
                         }
                     } catch (e: Exception) {
                         Log.e("ReturnAdd", "Upload bukti error: ${e.message}")
-                        // bukti opsional -> return tetap dianggap berhasil dibuat
                     }
                 }
 
@@ -1578,7 +1511,6 @@ private fun ReturnAddContent(
                             proofLocalUri = tempProofUri
                             showPreviewDialog = false
                             tempProofUri = null
-                            triggerProofHeadsUp()
                         },
                         onCancel = {
                             showPreviewDialog = false
@@ -1637,7 +1569,7 @@ private fun ReturnAddContent(
 }
 
 // =========================================================
-// 6. RETURN EDIT (FIXED: ganti updateDamageProofFile -> uploadDamageProof)
+// 6. RETURN EDIT (tetap; hanya notifikasi lokal dihapus)
 // =========================================================
 @Composable
 private fun ReturnEditContent(
@@ -1697,26 +1629,6 @@ private fun ReturnEditContent(
     var errorMessage by remember { mutableStateOf("") }
     var showSavedDialog by remember { mutableStateOf(false) }
 
-    // permission launcher untuk heads-up notif
-    var pendingProofNotif by remember { mutableStateOf(false) }
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted && pendingProofNotif) {
-            showProofUploadedHeadsUp(context)
-        }
-        pendingProofNotif = false
-    }
-
-    fun triggerProofHeadsUp() {
-        if (canPostNotifications(context)) {
-            showProofUploadedHeadsUp(context)
-        } else if (Build.VERSION.SDK_INT >= 33) {
-            pendingProofNotif = true
-            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-
     val galleryLauncher = rememberLauncherForActivityResult(contract = GetContent()) { uri ->
         if (uri != null) {
             tempProofUri = uri
@@ -1763,7 +1675,7 @@ private fun ReturnEditContent(
                     peminjamanId = peminjamanIdInt,
                     tanggalPengembalian = returnDate,
                     denda = fineAmount,
-                    buktiKerusakanUrl = proofServerUrl, // boleh full url juga
+                    buktiKerusakanUrl = proofServerUrl,
                     keterangan = description.takeIf { it.isNotBlank() }
                 )
 
@@ -1909,7 +1821,6 @@ private fun ReturnEditContent(
                             }
 
                             tempProofUri = null
-                            triggerProofHeadsUp()
                         },
                         onCancel = {
                             showPreviewDialog = false
@@ -2002,9 +1913,8 @@ private fun ReturnEditContent(
 }
 
 // =========================================================
-// SISANYA: komponen yang kamu sudah punya (DatePickerFields, DateField,
-// EditHistoryCard, MemberCard, BorrowingCard, ReturnDetailContent, AndalibApp)
-// tetap sama persis seperti versi kamu.
+// SISANYA: Komponen Anda (DatePickerFields, DateField, EditHistoryCard,
+// MemberCard, BorrowingCard, ReturnDetailContent, AndalibApp) tetap sama
 // =========================================================
 
 @Composable
@@ -2336,10 +2246,6 @@ private fun ReturnDetailContent(
         )
     }
 }
-
-// =========================================================
-// 7. NAVIGASI UTAMA APLIKASI (tetap)
-// =========================================================
 
 @Composable
 fun PlaceholderScreen(title: String, modifier: Modifier = Modifier) {

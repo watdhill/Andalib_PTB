@@ -1,8 +1,5 @@
 package com.example.andalib.data.network
 
-import com.example.andalib.screen.pengembalian.ReturnNotifDeleteResponse
-import com.example.andalib.screen.pengembalian.ReturnNotifListResponse
-import com.example.andalib.screen.pengembalian.ReturnNotifMarkReadResponse
 import com.example.andalib.screen.pengembalian.UploadDamageProofResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -13,6 +10,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Multipart
 import retrofit2.http.Part
+import retrofit2.http.PUT
 // =========================================================
 // 1. MODEL PERMINTAAN/RESPONS API (SINKRONISASI)
 // =========================================================
@@ -103,21 +101,6 @@ interface ApiService {
     @DELETE("returns/history/{id}")
     suspend fun deleteReturn(@Path("id") id: Int): ReturnStatusResponse
 
-    // ========= NOTIF API (Masih boleh ada, tapi UI lonceng sudah dihapus) =========
-    @GET("returnNotif")
-    suspend fun getReturnNotifs(
-        @Query("take") take: Int = 50
-    ): ReturnNotifListResponse
-
-    @PATCH("returnNotif/{id}/read")
-    suspend fun markReturnNotifRead(
-        @Path("id") id: Int
-    ): ReturnNotifMarkReadResponse
-
-    @DELETE("returnNotif/{id}")
-    suspend fun deleteReturnNotif(
-        @Path("id") id: Int
-    ): ReturnNotifDeleteResponse
 
     @Multipart
     @POST("returns/process")
@@ -130,11 +113,10 @@ interface ApiService {
     ): SubmitReturnResponse
 
     @Multipart
-    @POST("returns/{returnId}/damage-proof")
+    @PUT("returns/update-damage-proof/{returnId}")
     suspend fun uploadDamageProof(
         @Path("returnId") returnId: Int,
         @Part buktiKerusakan: okhttp3.MultipartBody.Part
     ): UploadDamageProofResponse
-
 
 }
