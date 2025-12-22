@@ -53,20 +53,15 @@ class LoginViewModel(
                     // ✅ PERBAIKAN LOGIKA: Hanya cek apakah token ada
                     if (loginBody?.token != null) {
                         tokenManager.saveAuthToken(loginBody.token)
-                        
+
+                        // ✅ SAVE ADMIN INFO untuk digunakan di modul peminjaman
+                        loginBody.user?.let { user ->
+                            tokenManager.saveAdminInfo(user.id, user.name)
+                        }
+
                         // ✅ START NOTIFICATION SERVICE
                         NotificationPollingService.start(context)
-                        
-                        // 🧪 TEST NOTIFICATION - Verify notification system works
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            val helper = com.example.andalib.utils.MemberNotificationHelper(context)
-                            helper.showNotification(
-                                title = "TEST: Notifikasi Berfungsi!",
-                                message = "Jika muncul popup, notif system OK ✅",
-                                notificationId = 9999
-                            )
-                        }, 2000) // 2 seconds after login
-                        
+
                         _loginState.value = LoginUiState.Success(loginBody.message ?: "Login berhasil!")
                     } else {
                         // Respons 2xx tapi token null
