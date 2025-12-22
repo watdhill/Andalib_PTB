@@ -3,9 +3,22 @@ package com.example.andalib.data.network
 import com.example.andalib.screen.member.ApiResponse
 import com.example.andalib.screen.member.MemberNotificationResponse
 import com.example.andalib.screen.member.NotificationCountResponse
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+
+/**
+ * Request body untuk create notification
+ */
+data class CreateNotificationRequest(
+    val type: String,
+    val title: String,
+    val message: String,
+    val bookTitle: String? = null,
+    val bookIsbn: String? = null
+)
 
 /**
  * Retrofit Service untuk Member Notifications API
@@ -35,6 +48,12 @@ interface MemberNotificationService {
      */
     @GET("member-notifications/count")
     suspend fun getUnreadCount(): NotificationCountResponse
+    
+    /**
+     * Create new notification (for book activities)
+     */
+    @POST("member-notifications")
+    suspend fun createNotification(@Body request: CreateNotificationRequest): ApiResponse
 }
 
 /**
