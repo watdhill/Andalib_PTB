@@ -56,7 +56,7 @@ fun createMemberNotificationService(token: String?): MemberNotificationService {
         .build()
 
     val retrofit = retrofit2.Retrofit.Builder()
-        .baseUrl("http://192.168.1.20:3000/api/") // Ganti dengan base URL backend kamu
+        .baseUrl("http://192.168.1.19:3000/api/") // Ganti dengan base URL backend kamu
         .client(okHttpClient)
         .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
         .build()
