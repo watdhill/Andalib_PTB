@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +37,12 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.example.andalib.ui.theme.LocalThemePreferences
+import com.example.andalib.data.TokenManager
+import com.example.andalib.data.network.createDashboardService
+import com.example.andalib.data.network.DashboardStats
+import com.example.andalib.data.network.RecentActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -212,6 +219,41 @@ private fun DrawerContent(
 fun HomeContent(
     onOpenDrawer: () -> Unit
 ) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    var stats by remember { mutableStateOf<DashboardStats?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Load dashboard stats
+    LaunchedEffect(Unit) {
+        isLoading = true
+        errorMessage = null
+        try {
+            val token = tokenManager.getToken()
+            if (token != null) {
+                val service = createDashboardService(token)
+                val response = withContext(Dispatchers.IO) {
+                    service.getDashboardStats()
+                }
+                if (response.success) {
+                    stats = response.data
+                } else {
+                    errorMessage = response.message
+                }
+            } else {
+                errorMessage = "Token tidak ditemukan"
+            }
+        } catch (e: Exception) {
+            errorMessage = "Gagal memuat data: ${e.message}"
+            android.util.Log.e("HomeContent", "Error loading dashboard", e)
+        } finally {
+            isLoading = false
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -241,6 +283,7 @@ fun HomeContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
             Text(
@@ -250,71 +293,115 @@ fun HomeContent(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatCard(
-                    title = "Total Buku",
-                    value = "150",
-                    icon = Icons.Default.Book,
-                    color = Color(0xFF2196F3),
-                    modifier = Modifier.weight(1f)
-                )
-
-                StatCard(
-                    title = "Dipinjam",
-                    value = "45",
-                    icon = Icons.Default.ShoppingCart,
-                    color = Color(0xFFFFA726),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatCard(
-                    title = "Anggota",
-                    value = "78",
-                    icon = Icons.Default.People,
-                    color = Color(0xFF66BB6A),
-                    modifier = Modifier.weight(1f)
-                )
-
-                StatCard(
-                    title = "Terlambat",
-                    value = "5",
-                    icon = Icons.Default.Warning,
-                    color = Color(0xFFEF5350),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Aktivitas Terkini",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "📚 Tidak ada aktivitas terbaru",
-                        fontSize = 14.sp,
-                        color = Color.Gray
+            
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (errorMessage != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else if (stats != null) {
+                // Statistics Cards
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        title = "Total Buku",
+                        value = stats!!.totalBooks.toString(),
+                        icon = Icons.Default.Book,
+                        color = Color(0xFF2196F3),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    StatCard(
+                        title = "Dipinjam",
+                        value = stats!!.activeBorrowings.toString(),
+                        icon = Icons.Default.ShoppingCart,
+                        color = Color(0xFFFFA726),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        title = "Anggota",
+                        value = stats!!.totalMembers.toString(),
+                        icon = Icons.Default.People,
+                        color = Color(0xFF66BB6A),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    StatCard(
+                        title = "Terlambat",
+                        value = stats!!.overdueBorrowings.toString(),
+                        icon = Icons.Default.Warning,
+                        color = Color(0xFFEF5350),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Aktivitas Terkini",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (stats!!.recentActivities.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "📚 Tidak ada aktivitas terbaru",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                } else {
+                    stats!!.recentActivities.forEach { activity ->
+                        ActivityCard(activity = activity)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -362,6 +449,79 @@ fun StatCard(
                 color = Color.Gray
             )
         }
+    }
+}
+
+@Composable
+fun ActivityCard(activity: RecentActivity) {
+    val statusColor = when (activity.status) {
+        "returned" -> Color(0xFF66BB6A)
+        "overdue" -> Color(0xFFEF5350)
+        else -> Color(0xFFFFA726)
+    }
+    
+    val statusText = when (activity.status) {
+        "returned" -> "Dikembalikan"
+        "overdue" -> "Terlambat"
+        else -> "Dipinjam"
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = activity.bookTitle,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                Text(
+                    text = "${activity.memberName} (${activity.memberNim})",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "Pinjam: ${formatDate(activity.borrowDate)}",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+            
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = statusColor.copy(alpha = 0.2f),
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text(
+                    text = statusText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = statusColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+// Helper function to format date
+private fun formatDate(dateString: String): String {
+    return try {
+        val date = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            .parse(dateString)
+        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+            .format(date ?: return dateString)
+    } catch (e: Exception) {
+        dateString.substring(0, 10)
     }
 }
 
