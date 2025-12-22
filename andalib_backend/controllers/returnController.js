@@ -40,7 +40,14 @@ function formatDateID(date) {
 function toUtcDateOnly(d) {
   const date = new Date(d);
   return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0)
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0
+    )
   );
 }
 
@@ -48,7 +55,9 @@ function assertReturnNotBeforeBorrow(returnDate, borrowDate) {
   const r = toUtcDateOnly(returnDate);
   const b = toUtcDateOnly(borrowDate);
   if (r < b) {
-    const err = new Error("Tanggal pengembalian tidak boleh sebelum tanggal peminjaman.");
+    const err = new Error(
+      "Tanggal pengembalian tidak boleh sebelum tanggal peminjaman."
+    );
     err.statusCode = 400;
     throw err;
   }
@@ -152,11 +161,10 @@ exports.getActiveBorrowings = async (req, res) => {
   }
 };
 
-
 // ============================================================
 // MULTER CONFIG untuk upload bukti kerusakan
 // ============================================================
-const damageProofUploadDir = path.join(__dirname, '..', 'uploads', 'kerusakan');
+const damageProofUploadDir = path.join(__dirname, "..", "uploads", "kerusakan");
 
 // Buat folder jika belum ada
 if (!fs.existsSync(damageProofUploadDir)) {
@@ -168,19 +176,22 @@ const storage = multer.diskStorage({
     cb(null, damageProofUploadDir); // Tentukan folder penyimpanan file
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname); // Ambil ekstensi file
     cb(null, `kerusakan-${uniqueSuffix}${ext}`); // Nama file dengan timestamp untuk menghindari duplikat
-  }
+  },
 });
 
 const fileFilter = (req, file, cb) => {
   // Hanya terima file gambar
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Hanya file gambar (JPEG, PNG, WEBP) yang diperbolehkan'), false);
+    cb(
+      new Error("Hanya file gambar (JPEG, PNG, WEBP) yang diperbolehkan"),
+      false
+    );
   }
 };
 
@@ -188,10 +199,8 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // Max 5MB
-  }
-
-  
+    fileSize: 5 * 1024 * 1024, // Max 5MB
+  },
 });
 
 // =====================================================
@@ -202,12 +211,19 @@ exports.updateDamageProof = async (req, res) => {
   const { returnId } = req.params;
 
   if (!req.file) {
-    return res.status(400).json({ success: false, message: "File bukti kerusakan tidak ditemukan" });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "File bukti kerusakan tidak ditemukan",
+      });
   }
 
   const id = parseInt(returnId, 10);
   if (Number.isNaN(id)) {
-    return res.status(400).json({ success: false, message: "returnId tidak valid" });
+    return res
+      .status(400)
+      .json({ success: false, message: "returnId tidak valid" });
   }
 
   try {
@@ -216,13 +232,18 @@ exports.updateDamageProof = async (req, res) => {
     });
 
     if (!existingReturn) {
-      return res.status(404).json({ success: false, message: "Pengembalian tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Pengembalian tidak ditemukan" });
     }
 
     // Hapus file lama jika ada
     if (existingReturn.buktiKerusakanUrl) {
       // contoh buktiKerusakanUrl: "/uploads/kerusakan/kerusakan-xxx.jpg"
-      const relative = existingReturn.buktiKerusakanUrl.replace(/^\/uploads\//, ""); 
+      const relative = existingReturn.buktiKerusakanUrl.replace(
+        /^\/uploads\//,
+        ""
+      );
       const oldPath = path.join(__dirname, "..", "uploads", relative);
 
       if (fs.existsSync(oldPath)) {
@@ -245,13 +266,24 @@ exports.updateDamageProof = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updateDamageProof:", error);
-    return res.status(500).json({ success: false, message: "Gagal memperbarui bukti kerusakan", detail: error.message });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Gagal memperbarui bukti kerusakan",
+        detail: error.message,
+      });
   }
 };
 
 exports.uploadDamageProofOnly = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ success: false, message: "File bukti kerusakan tidak ditemukan" });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "File bukti kerusakan tidak ditemukan",
+      });
   }
 
   const buktiKerusakanUrl = `/uploads/kerusakan/${req.file.filename}`;
@@ -375,7 +407,7 @@ exports.createReturn = async (req, res) => {
 // =====================================================
 // Update route untuk upload bukti kerusakan
 // =====================================================
-exports.uploadDamageProof = upload.single('buktiKerusakan'); 
+exports.uploadDamageProof = upload.single("buktiKerusakan");
 
 // =====================================================
 // [4] GET RETURN HISTORY
@@ -439,7 +471,9 @@ exports.deleteReturn = async (req, res) => {
       });
 
       if (!pengembalian) {
-        const err = new Error(`Pengembalian dengan ID ${returnId} tidak ditemukan`);
+        const err = new Error(
+          `Pengembalian dengan ID ${returnId} tidak ditemukan`
+        );
         err.statusCode = 404;
         throw err;
       }
@@ -457,7 +491,10 @@ exports.deleteReturn = async (req, res) => {
       if (pengembalian.buktiKerusakanUrl) {
         try {
           // contoh buktiKerusakanUrl: "/uploads/kerusakan/kerusakan-xxx.jpg"
-          const relative = pengembalian.buktiKerusakanUrl.replace(/^\/uploads\//, "");
+          const relative = pengembalian.buktiKerusakanUrl.replace(
+            /^\/uploads\//,
+            ""
+          );
           const filePath = path.join(__dirname, "..", "uploads", relative);
 
           if (fs.existsSync(filePath)) {
@@ -529,7 +566,13 @@ exports.deleteReturn = async (req, res) => {
 // =====================================================
 exports.updateReturn = async (req, res) => {
   const { returnId } = req.params;
-  const { peminjamanId, tanggalPengembalian, denda, buktiKerusakanUrl, keterangan } = req.body;
+  const {
+    peminjamanId,
+    tanggalPengembalian,
+    denda,
+    buktiKerusakanUrl,
+    keterangan,
+  } = req.body;
 
   const adminId = req.user?.id;
   const id = parseInt(returnId, 10);
@@ -554,7 +597,9 @@ exports.updateReturn = async (req, res) => {
       }
 
       if (pinjamId !== existing.peminjamanId) {
-        const err = new Error("peminjamanId tidak sesuai dengan data pengembalian.");
+        const err = new Error(
+          "peminjamanId tidak sesuai dengan data pengembalian."
+        );
         err.statusCode = 400;
         throw err;
       }
@@ -562,7 +607,9 @@ exports.updateReturn = async (req, res) => {
       const wasEmpty = !existing.buktiKerusakanUrl;
       const nowFilled = !!buktiKerusakanUrl;
 
-      const tanggalJs = tanggalPengembalian ? parseTanggalIndonesia(tanggalPengembalian) : new Date();
+      const tanggalJs = tanggalPengembalian
+        ? parseTanggalIndonesia(tanggalPengembalian)
+        : new Date();
 
       assertReturnNotBeforeBorrow(tanggalJs, existing.peminjaman.tanggalPinjam);
 
