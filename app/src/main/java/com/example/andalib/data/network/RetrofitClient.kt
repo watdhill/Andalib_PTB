@@ -23,7 +23,7 @@ import retrofit2.http.POST
 
 // !!! GANTI BASE_URL INI DENGAN ALAMAT IP SERVER BACKEND ANDA !!!
 // Contoh: "http://10.0.2.2:3000/api/" jika menggunakan emulator Android dan server lokal
-private const val BASE_URL = "http://192.168.1.19:3000/api/"
+private const val BASE_URL = "http://10.0.2.2:3000/api/"
 
 // =====================================================================
 // INTERCEPTOR & HTTP CLIENT

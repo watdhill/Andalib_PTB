@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.content.FileProvider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.BitmapFactory
 import com.example.andalib.Book
 import com.example.andalib.BookDatabase
+import com.example.andalib.createImageFile
 import java.io.File
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,7 @@ import com.example.andalib.data.network.createBookService
 import com.example.andalib.saveImageToInternalStorage
 import com.example.andalib.ui.theme.AndalibDarkBlue
 import androidx.compose.material3.HorizontalDivider
+import com.example.andalib.utils.BookNotificationHelper
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 fun BookScreen() {
     val context = LocalContext.current
     val database = remember { BookDatabase(context) }
+    val bookNotificationHelper = remember { BookNotificationHelper(context) }
     val coroutineScope = rememberCoroutineScope()
 
     var books by remember { 
@@ -259,6 +263,11 @@ fun BookScreen() {
                                 showNotif("⚠ ISBN sudah digunakan! Gunakan ISBN yang berbeda.")
                             } else {
                                 showNotif("✓ Buku berhasil ditambahkan!")
+                                // Show notification in notification tray
+                                bookNotificationHelper.showBookNotification(
+                                    BookNotificationHelper.TYPE_BOOK_ADDED,
+                                    formTitle
+                                )
                                 success = true
                             }
 
@@ -315,6 +324,11 @@ fun BookScreen() {
                                     showNotif("⚠ Gagal memperbarui buku.")
                                 } else {
                                     showNotif("✓ Buku berhasil diperbarui!")
+                                    // Show notification in notification tray
+                                    bookNotificationHelper.showBookNotification(
+                                        BookNotificationHelper.TYPE_BOOK_UPDATED,
+                                        formTitle
+                                    )
                                     success = true
                                 }
 
@@ -379,6 +393,11 @@ fun BookScreen() {
                         database.deleteBook(book.id)
                         refreshBooks()
                         showNotif("✓ Buku berhasil dihapus!")
+                        // Show notification in notification tray
+                        bookNotificationHelper.showBookNotification(
+                            BookNotificationHelper.TYPE_BOOK_DELETED,
+                            book.title
+                        )
                         currentView = "list"
                         selectedBook = null
                     }
@@ -485,6 +504,14 @@ fun BookScreen() {
 
                                 refreshBooks()
                                 showNotif("✓ Stok berhasil ditambahkan! (+$amount)")
+                                // Show notification in notification tray
+                                addStockBookInfo?.let { bookInfo ->
+                                    bookNotificationHelper.showBookNotification(
+                                        BookNotificationHelper.TYPE_STOCK_ADDED,
+                                        bookInfo.title,
+                                        " (+$amount)"
+                                    )
+                                }
                                 showAddStockDialog = false
                                 addStockBookInfo = null
                                 addStockIsbn = ""
@@ -960,12 +987,25 @@ fun AddEditBookView(
     var expanded by remember { mutableStateOf(false) }
     val categories = listOf("Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Pendidikan", "Religi")
 
-    // Image picker
+    // State untuk menyimpan URI foto dari kamera
+    var tempImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Image picker dari galeri
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             val savedPath = saveImageToInternalStorage(context, it, "book_cover")
+            onCoverPathChange(savedPath)
+        }
+    }
+    
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempImageUri != null) {
+            val savedPath = saveImageToInternalStorage(context, tempImageUri!!, "book_cover")
             onCoverPathChange(savedPath)
         }
     }
@@ -1014,10 +1054,26 @@ fun AddEditBookView(
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Button(onClick = { galleryLauncher.launch("image/*") }) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Pilih Gambar")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val photoFile = createImageFile(context, "book_cover")
+                        val uri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.provider",
+                            photoFile
+                        )
+                        tempImageUri = uri
+                        cameraLauncher.launch(uri)
+                    }) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ambil Foto")
+                    }
+                    Button(onClick = { galleryLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Pilih Gambar")
+                    }
                 }
             }
 
