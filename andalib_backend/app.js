@@ -9,6 +9,7 @@ const anggotaRoutes = require('./routes/anggota');
 const returnsRoutes = require('./routes/return');
 const peminjamanRoutes = require('./routes/peminjaman');
 const bukuRoutes = require('./routes/buku');
+const dashboardRoutes = require('./routes/dashboard');
 dotenv.config();
 
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
 app.use('/api/returns', returnsRoutes);
 app.use('/api/peminjaman', peminjamanRoutes); // Route untuk CRUD Peminjaman
 app.use('/api/buku', bukuRoutes); // Route untuk CRUD Buku
+app.use('/api/dashboard', dashboardRoutes); // Route untuk Dashboard Stats
 // ========== NOTIFIKASI MEMBER: ROUTES ==========
 // Route untuk notifikasi penghapusan anggota
 const memberNotificationRoutes = require('./routes/memberNotification');
