@@ -11,25 +11,25 @@ import retrofit2.http.Path
  * Retrofit Service untuk Member Notifications API
  */
 interface MemberNotificationService {
-    
+
     /**
      * Get unread notifications untuk current admin
      */
     @GET("member-notifications/unread")
     suspend fun getUnreadNotifications(): MemberNotificationResponse
-    
+
     /**
      * Get all notifications (read + unread)
      */
     @GET("member-notifications")
     suspend fun getAllNotifications(): MemberNotificationResponse
-    
+
     /**
      * Mark notification as read
      */
     @PUT("member-notifications/{id}/read")
     suspend fun markAsRead(@Path("id") id: Int): ApiResponse
-    
+
     /**
      * Get count of unread notifications
      */
@@ -56,7 +56,7 @@ fun createMemberNotificationService(token: String?): MemberNotificationService {
         .build()
 
     val retrofit = retrofit2.Retrofit.Builder()
-        .baseUrl("http://192.168.1.20:3000/api/") // Ganti dengan base URL backend kamu
+        .baseUrl("http://10.0.2.2:3000/api/") // Ganti dengan base URL backend kamu
         .client(okHttpClient)
         .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
         .build()

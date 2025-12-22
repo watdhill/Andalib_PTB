@@ -1,13 +1,13 @@
 package com.example.andalib.data.network
 
-import com.example.andalib.AnggotaItem
-import com.example.andalib.AnggotaListResponse
-import com.example.andalib.Borrowing
-import com.example.andalib.BorrowingResponse
-import com.example.andalib.BukuItem
-import com.example.andalib.CreateBorrowingRequest
-import com.example.andalib.DeleteBorrowingResponse
-import com.example.andalib.UpdateBorrowingRequest
+import com.example.andalib.screen.Borrowing.AnggotaItem
+import com.example.andalib.screen.Borrowing.AnggotaListResponse
+import com.example.andalib.screen.Borrowing.Borrowing
+import com.example.andalib.screen.Borrowing.BorrowingResponse
+import com.example.andalib.screen.Borrowing.BukuItem
+import com.example.andalib.screen.Borrowing.CreateBorrowingRequest
+import com.example.andalib.screen.Borrowing.DeleteBorrowingResponse
+import com.example.andalib.screen.Borrowing.UpdateBorrowingRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response

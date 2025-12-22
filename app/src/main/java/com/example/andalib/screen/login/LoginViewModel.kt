@@ -53,10 +53,15 @@ class LoginViewModel(
                     // ✅ PERBAIKAN LOGIKA: Hanya cek apakah token ada
                     if (loginBody?.token != null) {
                         tokenManager.saveAuthToken(loginBody.token)
-                        
+
+                        // ✅ SAVE ADMIN INFO untuk digunakan di modul peminjaman
+                        loginBody.user?.let { user ->
+                            tokenManager.saveAdminInfo(user.id, user.name)
+                        }
+
                         // ✅ START NOTIFICATION SERVICE
                         NotificationPollingService.start(context)
-                        
+
                         _loginState.value = LoginUiState.Success(loginBody.message ?: "Login berhasil!")
                     } else {
                         // Respons 2xx tapi token null
