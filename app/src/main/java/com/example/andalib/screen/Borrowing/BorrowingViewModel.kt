@@ -27,7 +27,7 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
     private val context: Context = application.applicationContext
     private val tokenManager = TokenManager(application)
     private val api: BorrowingApi = createBorrowingService(tokenManager)
-    private val bookDatabase = BookDatabase(context) // Database lokal untuk buku
+    private val bookDatabase = BookDatabase(context)
 
 
     var borrowings by mutableStateOf(emptyList<Borrowing>())
@@ -128,7 +128,6 @@ class BorrowingViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 }
             } catch (e: Exception) {
-                // Silent fail for members
             }
         }
     }

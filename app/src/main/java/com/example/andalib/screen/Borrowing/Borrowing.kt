@@ -75,7 +75,7 @@ data class BukuItem(
     val title: String,
     val author: String,
     val stok: Int,
-    val isbn: String = "",  // ISBN buku
+    val isbn: String = "",
     val kategoriId: Int? = null,
     val kategori: KategoriItem? = null
 )

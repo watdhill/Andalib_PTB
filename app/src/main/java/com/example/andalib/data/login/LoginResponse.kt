@@ -3,8 +3,8 @@ package com.example.andalib.data.login
 data class LoginResponse(
     val success: Boolean,
     val message: String,
-    val token: String?, // Token ada langsung di root
-    val user: UserInfo? = null // User info dari backend
+    val token: String?,
+    val user: UserInfo? = null
 )
 
 data class UserInfo(

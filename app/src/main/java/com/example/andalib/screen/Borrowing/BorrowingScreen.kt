@@ -302,7 +302,6 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
 
                 "add", "edit" -> AddEditBorrowingViewNew(
                     isEdit = currentView == "edit",
-                    // Member selection
                     selectedMember = selectedMember,
                     memberSearchQuery = memberSearchQuery,
                     members = members,
@@ -317,7 +316,6 @@ fun BorrowingScreen(viewModel: BorrowingViewModel = viewModel()) {
                         showMemberDropdown = false
                     },
                     onMemberDropdownDismiss = { showMemberDropdown = false },
-                    // Book selection
                     selectedBook = selectedBook,
                     bookSearchQuery = bookSearchQuery,
                     books = books,
@@ -925,7 +923,6 @@ fun AddEditBorrowingViewNew(
     ) { success: Boolean ->
         android.util.Log.d("BorrowingScreen", "Camera result: success=$success, cameraFilePath=$cameraFilePath")
         if (success && cameraFilePath != null) {
-            // Gambar sudah disimpan di file oleh kamera, langsung gunakan path-nya
             android.util.Log.d("BorrowingScreen", "Setting identityPath: $cameraFilePath")
             onIdentityPathChange(cameraFilePath!!)
         }
@@ -1445,14 +1442,12 @@ fun AddEditBorrowingViewNew(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AndalibDarkBlue)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Upload KRS (Opsional)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Upload KRS", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (identityPath.isNotEmpty()) {
-                        // Check if it's a local file path (/data/) or a server path (/uploads/)
                         if (identityPath.startsWith("/data/")) {
-                            // Local file - use BitmapFactory
                             val file = File(identityPath)
                             if (file.exists()) {
                                 val bitmap = BitmapFactory.decodeFile(identityPath)
