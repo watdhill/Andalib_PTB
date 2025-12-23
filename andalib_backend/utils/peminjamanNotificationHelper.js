@@ -1,7 +1,4 @@
-// ============================================================
-// PEMINJAMAN NOTIFICATION HELPER
-// ============================================================
-// Helper untuk membuat notifikasi peminjaman baru
+
 
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
@@ -19,7 +16,7 @@ const createPeminjamanNotification = async (peminjaman, adminId) => {
     console.log("   peminjaman.anggota:", peminjaman.anggota);
     console.log("   peminjaman.buku:", peminjaman.buku);
 
-    // Validasi adminId
+    
     if (!adminId) {
       console.warn(
         "⚠️  [createPeminjamanNotification] adminId tidak ada, skip"

@@ -6,7 +6,6 @@ const {
   createPeminjamanNotification,
 } = require("../utils/peminjamanNotificationHelper");
 
-// Helper: Parse tanggal format dd/MM/yyyy ke Date
 function parseTanggalIndonesia(dateStr) {
   if (!dateStr || typeof dateStr !== "string") {
     return new Date();
@@ -29,7 +28,7 @@ function parseTanggalIndonesia(dateStr) {
   return new Date(Date.UTC(year, month, day, 0, 0, 0));
 }
 
-// Helper: Format Date ke dd/MM/yyyy
+
 function formatTanggal(date) {
   return new Date(date).toLocaleDateString("id-ID", {
     day: "2-digit",
@@ -38,9 +37,7 @@ function formatTanggal(date) {
   });
 }
 
-// ============================================================
-// [1] GET ALL PEMINJAMAN
-// ============================================================
+
 exports.getAllPeminjaman = async (req, res) => {
   try {
     const peminjaman = await prisma.peminjaman.findMany({
@@ -71,7 +68,7 @@ exports.getAllPeminjaman = async (req, res) => {
       },
     });
 
-    // Format response sesuai dengan Borrowing.kt di Android
+  
     const result = peminjaman.map((p) => ({
       id: p.id,
       borrowerName: p.anggota.name,
@@ -81,7 +78,7 @@ exports.getAllPeminjaman = async (req, res) => {
       bookTitle: p.buku.title,
       author: p.buku.author || "",
       stok: p.buku.stok || 0,
-      isbn: "", // Tidak ada di DB
+      isbn: "", 
       identityPath: p.krsImagePath || "",
       borrowDate: formatTanggal(p.tanggalPinjam),
       returnDate: formatTanggal(p.jatuhTempo),
@@ -97,9 +94,7 @@ exports.getAllPeminjaman = async (req, res) => {
   }
 };
 
-// ============================================================
-// [2] SEARCH PEMINJAMAN
-// ============================================================
+
 exports.searchPeminjaman = async (req, res) => {
   const { q } = req.query;
 
@@ -159,9 +154,7 @@ exports.searchPeminjaman = async (req, res) => {
   }
 };
 
-// ============================================================
-// [3] GET PEMINJAMAN BY ID
-// ============================================================
+
 exports.getPeminjamanById = async (req, res) => {
   const { id } = req.params;
   const peminjamanId = parseInt(id, 10);
@@ -208,19 +201,17 @@ exports.getPeminjamanById = async (req, res) => {
   }
 };
 
-// ============================================================
-// [4] CREATE PEMINJAMAN
-// ============================================================
+
 exports.createPeminjaman = async (req, res) => {
   const {
-    nim, // NIM anggota yang meminjam
-    bukuId, // ID buku yang dipinjam
-    tanggalPinjam, // Format: dd/MM/yyyy (opsional, default: sekarang)
-    jatuhTempo, // Format: dd/MM/yyyy (wajib)
-    adminId, // ID admin yang mencatat (opsional)
+    nim, 
+    bukuId, 
+    tanggalPinjam, 
+    jatuhTempo, 
+    adminId, 
   } = req.body;
 
-  // Validasi input wajib
+  
   if (!nim) {
     return res
       .status(400)
@@ -239,13 +230,13 @@ exports.createPeminjaman = async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Cek apakah anggota ada
+     
       const anggota = await tx.anggota.findUnique({ where: { nim } });
       if (!anggota) {
         throw new Error(`Anggota dengan NIM ${nim} tidak ditemukan`);
       }
 
-      // 2. Cek apakah buku ada dan stoknya tersedia
+      
       const buku = await tx.buku.findUnique({
         where: { id: parseInt(bukuId) },
       });
@@ -256,19 +247,19 @@ exports.createPeminjaman = async (req, res) => {
         throw new Error(`Stok buku "${buku.title}" habis`);
       }
 
-      // 3. Parse tanggal
+      
       const tglPinjam = tanggalPinjam
         ? parseTanggalIndonesia(tanggalPinjam)
         : new Date();
       const tglTempo = parseTanggalIndonesia(jatuhTempo);
 
-      // 4. Handle KRS image jika ada upload
+      
       let krsPath = null;
       if (req.file) {
         krsPath = `/uploads/krs/${req.file.filename}`;
       }
 
-      // 5. Buat peminjaman baru
+     
       const newPeminjaman = await tx.peminjaman.create({
         data: {
           anggotaNim: nim,
@@ -285,7 +276,7 @@ exports.createPeminjaman = async (req, res) => {
         },
       });
 
-      // 6. Kurangi stok buku
+      
       await tx.buku.update({
         where: { id: parseInt(bukuId) },
         data: { stok: { decrement: 1 } },
@@ -294,7 +285,7 @@ exports.createPeminjaman = async (req, res) => {
       return newPeminjaman;
     });
 
-    // Format response
+    
     const response = {
       id: result.id,
       borrowerName: result.anggota.name,
@@ -311,7 +302,7 @@ exports.createPeminjaman = async (req, res) => {
       bukuId: result.bukuId,
     };
 
-    // Trigger notifikasi peminjaman baru
+    
     if (adminId) {
       await createPeminjamanNotification(result, parseInt(adminId));
     }
@@ -323,9 +314,7 @@ exports.createPeminjaman = async (req, res) => {
   }
 };
 
-// ============================================================
-// [5] UPDATE PEMINJAMAN
-// ============================================================
+
 exports.updatePeminjaman = async (req, res) => {
   const { id } = req.params;
   const peminjamanId = parseInt(id, 10);
@@ -335,12 +324,12 @@ exports.updatePeminjaman = async (req, res) => {
   }
 
   const {
-    jatuhTempo, // Format: dd/MM/yyyy
-    status, // DIPINJAM atau DIKEMBALIKAN
+    jatuhTempo, 
+    status, 
   } = req.body;
 
   try {
-    // Cek apakah peminjaman ada
+
     const existing = await prisma.peminjaman.findUnique({
       where: { id: peminjamanId },
     });
@@ -350,7 +339,7 @@ exports.updatePeminjaman = async (req, res) => {
         .json({ success: false, message: "Peminjaman tidak ditemukan" });
     }
 
-    // Prepare data update
+    
     const updateData = {};
 
     if (jatuhTempo) {
@@ -361,11 +350,11 @@ exports.updatePeminjaman = async (req, res) => {
       updateData.status = status;
     }
 
-    // Handle KRS image jika ada upload baru
+    
     if (req.file) {
       updateData.krsImagePath = `/uploads/krs/${req.file.filename}`;
 
-      // Hapus file lama jika ada
+    
       if (existing.krsImagePath) {
         const oldPath = path.join(__dirname, "..", existing.krsImagePath);
         if (fs.existsSync(oldPath)) {
@@ -408,9 +397,7 @@ exports.updatePeminjaman = async (req, res) => {
   }
 };
 
-// ============================================================
-// [6] DELETE PEMINJAMAN
-// ============================================================
+
 exports.deletePeminjaman = async (req, res) => {
   const { id } = req.params;
   const peminjamanId = parseInt(id, 10);
@@ -421,7 +408,7 @@ exports.deletePeminjaman = async (req, res) => {
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Ambil data peminjaman
+     
       const peminjaman = await tx.peminjaman.findUnique({
         where: { id: peminjamanId },
         include: { pengembalian: true },
@@ -431,7 +418,7 @@ exports.deletePeminjaman = async (req, res) => {
         throw new Error("Peminjaman tidak ditemukan");
       }
 
-      // 2. Jika ada pengembalian terkait, hapus dulu
+      
       if (peminjaman.pengembalian) {
         await tx.pengembalian.delete({
           where: { id: peminjaman.pengembalian.id },
@@ -446,7 +433,7 @@ exports.deletePeminjaman = async (req, res) => {
         });
       }
 
-      // 4. Hapus file KRS jika ada
+  
       if (peminjaman.krsImagePath) {
         const krsPath = path.join(__dirname, "..", peminjaman.krsImagePath);
         if (fs.existsSync(krsPath)) {
@@ -454,7 +441,7 @@ exports.deletePeminjaman = async (req, res) => {
         }
       }
 
-      // 5. Hapus peminjaman
+    
       await tx.peminjaman.delete({
         where: { id: peminjamanId },
       });
@@ -467,9 +454,7 @@ exports.deletePeminjaman = async (req, res) => {
   }
 };
 
-// ============================================================
-// [7] GET PEMINJAMAN AKTIF BY ANGGOTA (untuk modul return)
-// ============================================================
+
 exports.getActivePeminjamanByAnggota = async (req, res) => {
   const { nim } = req.params;
 
@@ -506,9 +491,7 @@ exports.getActivePeminjamanByAnggota = async (req, res) => {
   }
 };
 
-// ============================================================
-// [8] UPLOAD KRS IMAGE (untuk update KRS saja)
-// ============================================================
+
 exports.uploadKrsImage = async (req, res) => {
   const { id } = req.params;
   const peminjamanId = parseInt(id, 10);
@@ -533,7 +516,7 @@ exports.uploadKrsImage = async (req, res) => {
         .json({ success: false, message: "Peminjaman tidak ditemukan" });
     }
 
-    // Hapus file lama jika ada
+
     if (existing.krsImagePath) {
       const oldPath = path.join(__dirname, "..", existing.krsImagePath);
       if (fs.existsSync(oldPath)) {
@@ -541,7 +524,7 @@ exports.uploadKrsImage = async (req, res) => {
       }
     }
 
-    // Update dengan path baru
+ 
     const krsPath = `/uploads/krs/${req.file.filename}`;
     await prisma.peminjaman.update({
       where: { id: peminjamanId },
