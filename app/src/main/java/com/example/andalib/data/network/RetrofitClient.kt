@@ -17,17 +17,9 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 
-// =====================================================================
-// KONSTANTA
-// =====================================================================
 
-// !!! GANTI BASE_URL INI DENGAN ALAMAT IP SERVER BACKEND ANDA !!!
-// Contoh: "http://10.0.2.2:3000/api/" jika menggunakan emulator Android dan server lokal
 private const val BASE_URL = "http://10.0.2.2:3000/api/"
 
-// =====================================================================
-// INTERCEPTOR & HTTP CLIENT
-// =====================================================================
 
 /**
  * Interceptor untuk menambahkan token JWT ke setiap request terproteksi.
@@ -64,9 +56,6 @@ fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
         .build()
 }
 
-// =====================================================================
-// RETROFIT INSTANCE FACTORY
-// =====================================================================
 
 /**
  * Inisialisasi Retrofit.
@@ -79,9 +68,6 @@ fun createRetrofit(tokenManager: TokenManager): Retrofit {
         .build()
 }
 
-// =====================================================================
-// INTERFACE SERVICES
-// =====================================================================
 
 /**
  * Interface Service API untuk otentikasi.
@@ -95,9 +81,6 @@ interface AuthService {
 }
 
 
-// =====================================================================
-// SERVICE FACTORY FUNCTIONS
-// =====================================================================
 
 /**
  * Fungsi untuk membuat instance AuthService.

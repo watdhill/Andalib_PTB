@@ -121,8 +121,7 @@ fun BookScreen() {
         formCoverPath = ""
         formStok = ""
     }
-    
-    // Helper function to send notification to server
+
     suspend fun sendNotificationToServer(type: String, title: String, message: String, bookTitle: String, bookIsbn: String) {
         try {
             val token = tokenManager.getToken()
@@ -305,8 +304,7 @@ fun BookScreen() {
                                         bookIsbn = formIsbn
                                     )
                                 }
-                                
-                                // Show local notification
+
                                 android.util.Log.d("BookScreen", "Calling showBookNotification for: $formTitle")
                                 bookNotificationHelper.showBookNotification(
                                     BookNotificationHelper.TYPE_BOOK_ADDED,
@@ -314,7 +312,6 @@ fun BookScreen() {
                                 )
                             }
 
-                            // Try to sync to server in background
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val service = createBookService()
@@ -342,7 +339,6 @@ fun BookScreen() {
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    // Log or ignore sync error; local DB has the data
                                 }
                             }
                         }
@@ -369,7 +365,7 @@ fun BookScreen() {
                                     showNotif("✓ Buku berhasil diperbarui!")
                                     success = true
                                     
-                                    // Send notification to server
+
                                     coroutineScope.launch(Dispatchers.IO) {
                                         sendNotificationToServer(
                                             type = "BOOK_UPDATED",
@@ -379,15 +375,13 @@ fun BookScreen() {
                                             bookIsbn = formIsbn
                                         )
                                     }
-                                    
-                                    // Show local notification
+
                                     bookNotificationHelper.showBookNotification(
                                         BookNotificationHelper.TYPE_BOOK_UPDATED,
                                         formTitle
                                     )
                                 }
 
-                                // Sync update to server if this book has serverId
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
                                         val serverId = updatedBook.serverId
@@ -404,14 +398,14 @@ fun BookScreen() {
                                             service.updateBook(serverId, payload)
                                         }
                                     } catch (e: Exception) {
-                                        // ignore
+
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Jika sukses tambah/update (form lengkap dan tidak duplicate), refresh list dan reset form
+
                     if (isFormComplete && success) {
                         refreshBooks()
                         currentView = "list"
@@ -432,7 +426,6 @@ fun BookScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     selectedBook?.let { book ->
-                        // attempt to delete on server if serverId exists
                         val serverId = book.serverId
                         if (serverId != null) {
                             coroutineScope.launch(Dispatchers.IO) {
@@ -440,7 +433,7 @@ fun BookScreen() {
                                     val service = createBookService()
                                     service.deleteBook(serverId)
                                 } catch (e: Exception) {
-                                    // ignore
+
                                 }
                             }
                         }
@@ -449,7 +442,7 @@ fun BookScreen() {
                         refreshBooks()
                         showNotif("✓ Buku berhasil dihapus!")
                         
-                        // Send notification to server
+
                         coroutineScope.launch(Dispatchers.IO) {
                             sendNotificationToServer(
                                 type = "BOOK_DELETED",

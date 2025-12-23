@@ -51,14 +51,14 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            // ThemePreferences harus dibuat DI dalam setContent (Composable scope)
+
             val themePrefs = remember { ThemePreferences(applicationContext) }
             val isDark by themePrefs.isDarkTheme.collectAsState(initial = false)
 
             CompositionLocalProvider(
                 LocalThemePreferences provides themePrefs
             ) {
-                // Pakai isDark yang sudah di-collect dari DataStore
+
                 AndalibTheme(
                     dynamicColor = false
                 ) {
@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
                     this,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED -> {
-                    // already granted
+
                 }
 
                 else -> {
