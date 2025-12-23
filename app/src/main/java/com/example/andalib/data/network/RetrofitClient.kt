@@ -17,21 +17,10 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 
-// =====================================================================
-// KONSTANTA
-// =====================================================================
 
-// !!! GANTI BASE_URL INI DENGAN ALAMAT IP SERVER BACKEND ANDA !!!
-// Contoh: "http://10.0.2.2:3000/api/" jika menggunakan emulator Android dan server lokal
 private const val BASE_URL = "http://10.0.2.2:3000/api/"
 
-// =====================================================================
-// INTERCEPTOR & HTTP CLIENT
-// =====================================================================
 
-/**
- * Interceptor untuk menambahkan token JWT ke setiap request terproteksi.
- */
 fun createAuthInterceptor(tokenManager: TokenManager): Interceptor {
     return Interceptor { chain ->
         val token = runBlocking {
@@ -49,9 +38,7 @@ fun createAuthInterceptor(tokenManager: TokenManager): Interceptor {
     }
 }
 
-/**
- * Konfigurasi OkHttpClient dengan logging dan auth interceptor.
- */
+
 fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
     val logging = HttpLoggingInterceptor().apply {
         // Level BODY menampilkan request dan response body di Logcat
@@ -64,13 +51,7 @@ fun createHttpClient(tokenManager: TokenManager): OkHttpClient {
         .build()
 }
 
-// =====================================================================
-// RETROFIT INSTANCE FACTORY
-// =====================================================================
 
-/**
- * Inisialisasi Retrofit.
- */
 fun createRetrofit(tokenManager: TokenManager): Retrofit {
     return Retrofit.Builder()
         .baseUrl(BASE_URL)
@@ -79,13 +60,6 @@ fun createRetrofit(tokenManager: TokenManager): Retrofit {
         .build()
 }
 
-// =====================================================================
-// INTERFACE SERVICES
-// =====================================================================
-
-/**
- * Interface Service API untuk otentikasi.
- */
 interface AuthService {
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
@@ -94,35 +68,19 @@ interface AuthService {
     suspend fun signup(@Body request: SignUpRequest): Response<SignUpResponse>
 }
 
-
-// =====================================================================
-// SERVICE FACTORY FUNCTIONS
-// =====================================================================
-
-/**
- * Fungsi untuk membuat instance AuthService.
- */
 fun createAuthService(tokenManager: TokenManager): AuthService {
     return createRetrofit(tokenManager).create(AuthService::class.java)
 }
 
-/**
- * BARU: Fungsi untuk membuat instance ApiService (untuk modul Pengembalian).
- */
 fun createApiService(tokenManager: TokenManager): ApiService {
     return createRetrofit(tokenManager).create(ApiService::class.java)
 }
 
-/**
- * Fungsi untuk membuat instance BorrowingApi.
- */
+
 fun createBorrowingService(tokenManager: TokenManager): BorrowingApi {
     return createRetrofit(tokenManager).create(BorrowingApi::class.java)
 }
 
-/**
- * Fungsi untuk membuat instance MemberService.
- */
 fun createMemberService(tokenManager: TokenManager): MemberService {
     return createRetrofit(tokenManager).create(MemberService::class.java)
 }

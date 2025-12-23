@@ -126,9 +126,6 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import android.app.DatePickerDialog as AndroidDatePickerDialog
 
-// =========================================================
-// 0. (MODEL UPLOAD RESPONSE) - tetap dipakai untuk upload bukti kerusakan
-// =========================================================
 data class UploadDamageProofResponse(
     @SerializedName("success")
     val success: Boolean,
@@ -143,16 +140,12 @@ data class UploadDamageProofResponse(
     val message: String? = null
 )
 
-// =========================================================
-// 0B. FIREBASE FCM SETUP (permission + token)
-// =========================================================
 @Composable
 private fun FirebaseNotificationSetup(
     onTokenReady: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
 
-    // Request permission POST_NOTIFICATIONS untuk Android 13+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -182,15 +175,11 @@ private fun FirebaseNotificationSetup(
                 Log.d("FCM", "FCM token: $token")
                 onTokenReady?.invoke(token)
 
-                // Jika Anda punya endpoint untuk simpan token ke backend,
-                // panggil di luar sini (misalnya di ReturnScreen setelah token didapat).
             }
     }
 }
 
-// =========================================================
-// 1. TEMA DAN KONSTANTA
-// =========================================================
+
 val BlueDarkest = Color(0xFF021024)
 val BlueDark = Color(0xFF052659)
 val BlueMedium = Color(0xFF5483B3)
@@ -243,9 +232,6 @@ data class ReturnHistoryItem(
     val proofUriString: String? = null
 )
 
-// =========================================================
-//  BOTTOM NAV
-// =========================================================
 sealed class BottomNavItem(
     val route: String,
     val title: String,
@@ -290,9 +276,6 @@ object NavAnimations {
     fun tabExit(): ExitTransition = fadeOut(animationSpec = tween(DURATION))
 }
 
-// =========================================================
-// 2. LOGIKA PEMBANTU
-// =========================================================
 private const val FINE_PER_DAY = 3000
 
 @SuppressLint("ConstantLocale")
@@ -341,9 +324,7 @@ private class NoRippleInteractionSource : MutableInteractionSource {
     override suspend fun emit(interaction: androidx.compose.foundation.interaction.Interaction) {}
 }
 
-// =========================================================
-// 3. KOMPONEN PEMBANTU
-// =========================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppBarHeader(
@@ -842,9 +823,7 @@ private fun SimpleInfoDialog(
     )
 }
 
-// =========================================================
-// 4. FUNGSI UTAMA ReturnScreen
-// =========================================================
+
 @Composable
 fun ReturnScreen() {
     // Setup FCM (permission + token)
@@ -1100,9 +1079,6 @@ private fun ReturnListContent(
     }
 }
 
-// =========================================================
-// 5. RETURN ADD (notifikasi lokal dihapus; flow return tetap sama)
-// =========================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReturnAddContent(
@@ -1194,7 +1170,7 @@ private fun ReturnAddContent(
         }
     }
 
-    // 2. AMBIL PEMINJAMAN AKTIF
+
     LaunchedEffect(selectedMember) {
         availableBorrowings = emptyList()
         selectedBorrowing = null
@@ -1223,7 +1199,6 @@ private fun ReturnAddContent(
         }
     }
 
-    // 3. SUBMIT PENGEMBALIAN (create → upload proof → update)
     val handleSubmit: () -> Unit = handleSubmit@{
         if (selectedBorrowing == null || selectedMember == null) return@handleSubmit
 
@@ -1568,9 +1543,7 @@ private fun ReturnAddContent(
     }
 }
 
-// =========================================================
-// 6. RETURN EDIT (tetap; hanya notifikasi lokal dihapus)
-// =========================================================
+
 @Composable
 private fun ReturnEditContent(
     selectedItem: ReturnHistoryItem?,
@@ -1912,10 +1885,6 @@ private fun ReturnEditContent(
     }
 }
 
-// =========================================================
-// SISANYA: Komponen Anda (DatePickerFields, DateField, EditHistoryCard,
-// MemberCard, BorrowingCard, ReturnDetailContent, AndalibApp) tetap sama
-// =========================================================
 
 @Composable
 fun DatePickerFields(

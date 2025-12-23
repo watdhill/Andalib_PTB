@@ -21,7 +21,7 @@ async function notifyAdminsDamageProof({ peminjamanId, pengembalianId, buktiKeru
       peminjamanId: String(peminjamanId),
       pengembalianId: String(pengembalianId),
       buktiKerusakanUrl: buktiKerusakanUrl || "",
-      // optional untuk fallback client:
+      
       title: "Bukti Kerusakan Diunggah",
       body: `Peminjaman ID: ${peminjamanId} (Pengembalian ID: ${pengembalianId})`,
     },

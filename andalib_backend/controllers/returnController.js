@@ -6,32 +6,24 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// ===============================
-// FIREBASE ADMIN (FCM) - TOPIC
-// ===============================
+
 const admin = require("firebase-admin");
 
 const FCM_ADMIN_TOPIC = process.env.FCM_ADMIN_TOPIC || "andalib-admin";
 
-/**
- * Init Firebase Admin dengan prioritas:
- * 1) Application Default Credentials via GOOGLE_APPLICATION_CREDENTIALS
- * 2) Env FIREBASE_SERVICE_ACCOUNT_JSON (string JSON)
- * 3) File ./serviceAccountKey.json (fallback)
- */
+
 function initFirebaseAdminIfNeeded() {
   if (admin.apps && admin.apps.length > 0) return;
 
   try {
-    // 1) Jika GOOGLE_APPLICATION_CREDENTIALS ada, cukup initializeApp() tanpa param
-    //    firebase-admin akan mengambil credential dari env tersebut.
+    
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       admin.initializeApp();
       console.log("[FCM] Initialized using GOOGLE_APPLICATION_CREDENTIALS");
       return;
     }
 
-    // 2) Env JSON service account
+    
     if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
       admin.initializeApp({
@@ -41,7 +33,7 @@ function initFirebaseAdminIfNeeded() {
       return;
     }
 
-    // 3) Fallback file di root project (opsional)
+  
     const fallbackPath = path.join(process.cwd(), "serviceAccountKey.json");
     if (fs.existsSync(fallbackPath)) {
       // eslint-disable-next-line import/no-dynamic-require, global-require
@@ -83,14 +75,12 @@ async function sendDamageProofFcm({ peminjamanId, pengembalianId, buktiKerusakan
     const resp = await admin.messaging().send(message);
     console.log("[FCM] Sent:", resp);
   } catch (e) {
-    // Notifikasi gagal tidak boleh menggagalkan transaksi utama
+    
     console.error("[FCM] Send failed:", e.message);
   }
 }
 
-// =====================================================
-// DATE HELPERS (ANTI SHIFT HARI + VALIDASI)
-// =====================================================
+
 function parseTanggalIndonesia(dateStr) {
   // input: "dd/MM/yyyy"
   if (!dateStr || typeof dateStr !== "string") return new Date();
@@ -100,19 +90,19 @@ function parseTanggalIndonesia(dateStr) {
 
   const [dd, MM, yyyy] = parts;
   const day = Number(dd);
-  const month = Number(MM) - 1; // 0-based
+  const month = Number(MM) - 1; 
   const year = Number(yyyy);
 
   if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) {
     return new Date(dateStr);
   }
 
-  // simpan sebagai UTC midnight agar tidak geser hari
+ 
   return new Date(Date.UTC(year, month, day, 0, 0, 0));
 }
 
 function formatDateID(date) {
-  // output: "dd/MM/yyyy"
+  
   return new Date(date).toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "2-digit",
@@ -137,10 +127,7 @@ function assertReturnNotBeforeBorrow(returnDate, borrowDate) {
   }
 }
 
-// =====================================================
-// [1] SEARCH MEMBERS (nama / nim)
-// GET /returns/members/search?query=...
-// =====================================================
+
 exports.searchMembers = async (req, res) => {
   const q = (req.query.query || "").trim();
   if (!q) return res.json([]);
@@ -169,10 +156,7 @@ exports.searchMembers = async (req, res) => {
   }
 };
 
-// =====================================================
-// [2] GET ACTIVE BORROWINGS (status DIPINJAM)
-// GET /returns/borrowings/active/:nim
-// =====================================================
+
 exports.getActiveBorrowings = async (req, res) => {
   const { nim } = req.params;
 
@@ -211,12 +195,10 @@ exports.getActiveBorrowings = async (req, res) => {
   }
 };
 
-// ============================================================
-// MULTER CONFIG untuk upload bukti kerusakan
-// ============================================================
+
 const damageProofUploadDir = path.join(__dirname, "..", "uploads", "kerusakan");
 
-// Buat folder jika belum ada
+
 if (!fs.existsSync(damageProofUploadDir)) {
   fs.mkdirSync(damageProofUploadDir, { recursive: true });
 }
@@ -242,15 +224,10 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// =====================================================
-// Update route untuk upload bukti kerusakan (middleware)
-// =====================================================
+
 exports.uploadDamageProof = upload.single("buktiKerusakan");
 
-// =====================================================
-// UPLOAD ONLY (tanpa update DB pengembalian)
-// (kalau route kamu masih memakainya)
-// =====================================================
+
 exports.uploadDamageProofOnly = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: "File bukti kerusakan tidak ditemukan" });
@@ -260,10 +237,7 @@ exports.uploadDamageProofOnly = async (req, res) => {
   return res.json({ success: true, buktiKerusakanUrl });
 };
 
-// =====================================================
-// UPDATE DAMAGE PROOF (bukti kerusakan)
-// PUT /returns/update-damage-proof/:returnId
-// =====================================================
+
 exports.updateDamageProof = async (req, res) => {
   const { returnId } = req.params;
 
@@ -282,7 +256,7 @@ exports.updateDamageProof = async (req, res) => {
       return res.status(404).json({ success: false, message: "Pengembalian tidak ditemukan" });
     }
 
-    // Hapus file lama jika ada
+
     if (existingReturn.buktiKerusakanUrl) {
       const relative = existingReturn.buktiKerusakanUrl.replace(/^\/uploads\//, "");
       const oldPath = path.join(__dirname, "..", "uploads", relative);
@@ -296,7 +270,7 @@ exports.updateDamageProof = async (req, res) => {
       data: { buktiKerusakanUrl },
     });
 
-    // Kirim notifikasi FCM (non-blocking)
+   
     sendDamageProofFcm({
       peminjamanId: updatedReturn.peminjamanId,
       pengembalianId: updatedReturn.id,
@@ -321,10 +295,7 @@ exports.updateDamageProof = async (req, res) => {
 
 
 
-// =====================================================
-// CREATE RETURN + UPDATE STOCK + UPDATE STATUS + FCM
-// POST /returns/process
-// =====================================================
+
 exports.createReturn = async (req, res) => {
   const { peminjamanId, tanggalPengembalian, denda, keterangan } = req.body;
   let { buktiKerusakanUrl } = req.body;
@@ -340,7 +311,6 @@ exports.createReturn = async (req, res) => {
     });
   }
 
-  // data untuk FCM setelah transaksi commit
   let fcmPayloadToSend = null;
 
   try {
@@ -394,7 +364,7 @@ exports.createReturn = async (req, res) => {
         data: { status: "DIKEMBALIKAN" },
       });
 
-      // Siapkan payload FCM jika bukti kerusakan ada
+   
       if (buktiKerusakanUrl) {
         fcmPayloadToSend = {
           peminjamanId: pId,
@@ -413,7 +383,7 @@ exports.createReturn = async (req, res) => {
       });
     }
 
-    // Kirim FCM setelah transaksi sukses
+    
     if (fcmPayloadToSend) {
       sendDamageProofFcm(fcmPayloadToSend).catch(() => {});
     }
@@ -439,10 +409,7 @@ exports.createReturn = async (req, res) => {
   }
 };
 
-// =====================================================
-// [4] GET RETURN HISTORY
-// GET /returns/history
-// =====================================================
+
 exports.getReturnHistory = async (req, res) => {
   try {
     const records = await prisma.pengembalian.findMany({
@@ -475,10 +442,6 @@ exports.getReturnHistory = async (req, res) => {
   }
 };
 
-// =====================================================
-// [5] DELETE RETURN (rollback status + stok) + HAPUS FILE BUKTI
-// DELETE /returns/history/:id
-// =====================================================
 exports.deleteReturn = async (req, res) => {
   const { id } = req.params;
   const returnId = parseInt(id, 10);
@@ -512,7 +475,7 @@ exports.deleteReturn = async (req, res) => {
         throw err;
       }
 
-      // HAPUS FILE BUKTI jika ada (tidak menggagalkan transaksi jika gagal)
+      
       if (pengembalian.buktiKerusakanUrl) {
         try {
           const relative = pengembalian.buktiKerusakanUrl.replace(/^\/uploads\//, "");
@@ -523,7 +486,7 @@ exports.deleteReturn = async (req, res) => {
         }
       }
 
-      // rollback jika sebelumnya status DIKEMBALIKAN
+      
       if (peminjaman.status === "DIKEMBALIKAN") {
         const buku = await tx.buku.findUnique({
           where: { id: peminjaman.bukuId },
@@ -572,11 +535,7 @@ exports.deleteReturn = async (req, res) => {
   }
 };
 
-// =====================================================
-// [6] UPDATE RETURN + FCM (bukti kosong -> jadi terisi)
-// POST /returns/update/:returnId
-// body: { peminjamanId, tanggalPengembalian, denda, buktiKerusakanUrl, keterangan }
-// =====================================================
+
 exports.updateReturn = async (req, res) => {
   const { returnId } = req.params;
   const { peminjamanId, tanggalPengembalian, denda, buktiKerusakanUrl, keterangan } = req.body;
@@ -629,7 +588,6 @@ exports.updateReturn = async (req, res) => {
         },
       });
 
-      // Siapkan FCM hanya jika bukti berubah dari kosong -> terisi
       if (wasEmpty && nowFilled) {
         fcmPayloadToSend = {
           peminjamanId: existing.peminjamanId,
@@ -641,7 +599,7 @@ exports.updateReturn = async (req, res) => {
       return result;
     });
 
-    // Kirim FCM setelah transaksi sukses
+    
     if (fcmPayloadToSend) {
       sendDamageProofFcm(fcmPayloadToSend).catch(() => {});
     }

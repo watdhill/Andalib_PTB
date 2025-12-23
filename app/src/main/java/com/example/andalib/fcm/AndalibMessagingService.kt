@@ -30,20 +30,13 @@ class AndalibMessagingService : FirebaseMessagingService() {
         private const val CHANNEL_NAME = "Andalib Notifications"
         private const val CHANNEL_DESC = "Notifikasi Andalib (FCM)"
 
-        /**
-         * Panggil ini setelah admin berhasil login / saat app start untuk admin device.
-         * Ini WAJIB kalau backend mengirim ke "topic".
-         */
         fun subscribeAdminTopic() {
             FirebaseMessaging.getInstance().subscribeToTopic(ADMIN_TOPIC)
                 .addOnSuccessListener { Log.d(TAG, "Subscribed to topic: $ADMIN_TOPIC") }
                 .addOnFailureListener { e -> Log.e(TAG, "Subscribe topic failed: ${e.message}", e) }
         }
 
-        /**
-         * Untuk debugging: lihat token device di Logcat.
-         * Jika ingin kirim via token (bukan topic), token ini yang dipakai.
-         */
+
         fun logCurrentToken() {
             FirebaseMessaging.getInstance().token
                 .addOnSuccessListener { token -> Log.d(TAG, "FCM token: $token") }
@@ -55,9 +48,6 @@ class AndalibMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         Log.d(TAG, "onNewToken: $token")
 
-        // Jika nanti Anda ingin kirim by token (bukan topic),
-        // kirim token ini ke backend dan simpan per user/admin.
-        // TODO: call API backend: /api/device-token (authorized).
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -77,7 +67,6 @@ class AndalibMessagingService : FirebaseMessagingService() {
             ?: message.data["message"]
             ?: ""
 
-        // Optional: Anda bisa baca tipe notifikasi dari data payload
         val type = message.data["type"] ?: "UNKNOWN"
         val peminjamanId = message.data["peminjamanId"] ?: ""
         val pengembalianId = message.data["pengembalianId"] ?: ""
@@ -96,7 +85,6 @@ class AndalibMessagingService : FirebaseMessagingService() {
     private fun showNotification(title: String, body: String, extras: Map<String, String> = emptyMap()) {
         createChannelIfNeeded()
 
-        // Android 13+ wajib cek permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 this,
@@ -127,7 +115,7 @@ class AndalibMessagingService : FirebaseMessagingService() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher) // Anda bisa ganti icon notifikasi khusus
+            .setSmallIcon(R.drawable.logo)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

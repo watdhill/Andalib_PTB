@@ -2,9 +2,7 @@ package com.example.andalib.data.network
 
 import retrofit2.http.GET
 
-/**
- * Data class untuk dashboard statistics
- */
+
 data class DashboardStats(
     val totalBooks: Int,
     val totalMembers: Int,
@@ -31,17 +29,12 @@ data class DashboardResponse(
     val data: DashboardStats
 )
 
-/**
- * Retrofit Service untuk Dashboard API
- */
+
 interface DashboardService {
     @GET("dashboard/stats")
     suspend fun getDashboardStats(): DashboardResponse
 }
 
-/**
- * Factory function untuk create DashboardService dengan auth token
- */
 fun createDashboardService(token: String?): DashboardService {
     val okHttpClient = okhttp3.OkHttpClient.Builder()
         .addInterceptor { chain ->

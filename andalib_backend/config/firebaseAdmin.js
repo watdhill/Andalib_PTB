@@ -6,7 +6,7 @@ let isInitialized = false;
 
 function resolveCredentialPath(p) {
   if (!p) return null;
-  // kalau relative, jadikan absolute berdasar root project (process.cwd())
+
   return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
 }
 
@@ -14,7 +14,7 @@ function initFirebaseAdmin() {
   if (isInitialized) return admin;
 
   try {
-    // 1) Pakai GOOGLE_APPLICATION_CREDENTIALS (path file)
+    
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       const credPath = resolveCredentialPath(process.env.GOOGLE_APPLICATION_CREDENTIALS);
 
@@ -35,7 +35,6 @@ function initFirebaseAdmin() {
       return admin;
     }
 
-    // 2) Alternatif: JSON langsung dari env
     if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 
@@ -48,7 +47,6 @@ function initFirebaseAdmin() {
       return admin;
     }
 
-    // 3) Alternatif: Base64
     if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
       const jsonStr = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8");
       const serviceAccount = JSON.parse(jsonStr);

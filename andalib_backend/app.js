@@ -15,31 +15,30 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.json()); // Body parser untuk JSON
+app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files untuk uploads
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/api/auth', authRoutes); // /api/auth/login, /api/auth/register
-app.use('/api/admin', adminRoutes); // Route khusus untuk Admin (sudah dilindungi)
-app.use('/api/anggota', anggotaRoutes); // Route untuk CRUD Anggota
+app.use('/api/auth', authRoutes); 
+app.use('/api/admin', adminRoutes); 
+app.use('/api/anggota', anggotaRoutes); 
 app.use('/api/returns', returnsRoutes);
-app.use('/api/peminjaman', peminjamanRoutes); // Route untuk CRUD Peminjaman
-app.use('/api/buku', bukuRoutes); // Route untuk CRUD Buku
-app.use('/api/dashboard', dashboardRoutes); // Route untuk Dashboard Stats
-// ========== NOTIFIKASI MEMBER: ROUTES ==========
-// Route untuk notifikasi penghapusan anggota
+app.use('/api/peminjaman', peminjamanRoutes); 
+app.use('/api/buku', bukuRoutes); 
+app.use('/api/dashboard', dashboardRoutes); 
+
+
 const memberNotificationRoutes = require('./routes/memberNotification');
 app.use('/api/member-notifications', memberNotificationRoutes);
 
-// Cleanup scheduler untuk auto-delete notifikasi yang sudah dibaca > 2 menit
-const { startCleanupScheduler } = require('./utils/notificationCleanup');
-// ================================================
 
-// Basic route
+const { startCleanupScheduler } = require('./utils/notificationCleanup');
+
+
+
 app.get('/', (req, res) => {
     res.send('Perpustakaan Backend API Running');
 });
@@ -48,6 +47,6 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 
-    // ✅ Start notification cleanup scheduler
+    
     startCleanupScheduler();
 });

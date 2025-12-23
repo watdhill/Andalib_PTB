@@ -1445,7 +1445,7 @@ fun AddEditBorrowingViewNew(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AndalibDarkBlue)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Upload KRS (Opsional)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Upload KRS", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 

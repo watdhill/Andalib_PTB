@@ -4,16 +4,12 @@ import com.example.andalib.screen.pengembalian.UploadDamageProofResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Multipart
 import retrofit2.http.Part
 import retrofit2.http.PUT
-// =========================================================
-// 1. MODEL PERMINTAAN/RESPONS API (SINKRONISASI)
-// =========================================================
 
 data class ReturnRequest(
     val peminjamanId: Int,
@@ -72,11 +68,6 @@ data class UploadProofResponse(
     val url: String? = null,
     val message: String? = null
 )
-
-
-// =========================================================
-// 2. INTERFACE API SERVICE (Retrofit Ready)
-// =========================================================
 
 interface ApiService {
 

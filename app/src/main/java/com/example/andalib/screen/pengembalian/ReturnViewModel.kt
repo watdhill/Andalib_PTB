@@ -12,9 +12,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// =========================================================
-// 1. UI MODEL DEFINITIONS (Tidak ada perubahan di sini)
-// =========================================================
 
 data class AnggotaUI(val nim: String, val nama: String, val email: String?)
 
@@ -26,13 +23,9 @@ data class PeminjamanUI(
     val jatuhTempo: String
 )
 
-// =========================================================
-// 2. VIEWMODEL IMPLEMENTATION (Dengan Perbaikan)
-// =========================================================
-
 class ReturnViewModel(
-    // === PERBAIKAN UTAMA ADA DI SINI ===
-    private val apiService: ApiService // Tipe diubah dari String ke ApiService
+
+    private val apiService: ApiService
 ) : ViewModel() {
 
     // ---------------------- STATE FLOWS ----------------------
@@ -151,7 +144,6 @@ class ReturnViewModel(
         _transactionStatus.value = null
     }
 
-    // ---------------------- PRIVATE API CALLS ----------------------
 
     private fun searchMembers(query: String) {
         viewModelScope.launch {
@@ -175,7 +167,6 @@ class ReturnViewModel(
             _isLoading.update { true }
             _activeLoans.value = emptyList()
             try {
-                // Sekarang pemanggilan ini valid
                 val loans = apiService.fetchActiveLoans(nim).map {
                     PeminjamanUI(it.id, it.judulBuku, it.author, it.tglPinjam, it.jatuhTempo)
                 }
