@@ -59,23 +59,20 @@ fun MembersScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Service API
+    
     val tokenManager = remember { TokenManager(context) }
     val apiService = remember { createMemberService(tokenManager) }
 
-    // State Data
+    
     var members by remember { mutableStateOf(emptyList<MemberApi>()) }
     var isLoading by remember { mutableStateOf(false) }
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    // Load Data
+    
     LaunchedEffect(refreshTrigger) {
         isLoading = true
         try {
-            // Note: Pastikan RetrofitClient.create... mengembalikan service yang benar memuat method getAllMembers
-            // Jika RetrofitClient Anda hanya return AuthService, Anda perlu menambah method createMemberService di sana.
-            // Untuk contoh ini saya asumsikan apiService sudah benar.
-            // SEMENTARA: Menggunakan try-catch manual karena ViewModel belum ada di prompt ini
+            
             val response = apiService.getAllMembers()
             if (response.success) {
                 members = response.data
@@ -84,19 +81,17 @@ fun MembersScreen() {
             }
         } catch (e: Exception) {
             Log.e("MembersScreen", "Error loading members", e)
-            // Toast.makeText(context, "Gagal memuat data: ${e.message}", Toast.LENGTH_SHORT).show()
         } finally {
             isLoading = false
         }
     }
 
-    // State UI
+
     var searchQuery by remember { mutableStateOf("") }
-    var currentView by remember { mutableStateOf("list") } // list, add, edit, detail
+    var currentView by remember { mutableStateOf("list") } 
     var selectedMember by remember { mutableStateOf<MemberApi?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // State Form
     var formName by remember { mutableStateOf("") }
     var formNim by remember { mutableStateOf("") }
     var formGender by remember { mutableStateOf(Gender.LAKI_LAKI) }
@@ -119,12 +114,10 @@ fun MembersScreen() {
         formMajor = Major.ILMU_HUKUM
     }
 
-    // Fungsi Simpan ke API
     fun saveMember(isEdit: Boolean) {
         scope.launch {
             isLoading = true
             try {
-                // Check for duplicate NIM when adding new member
                 if (!isEdit) {
                     val isDuplicate = members.any { it.nim == formNim }
                     if (isDuplicate) {
@@ -253,10 +246,8 @@ fun MembersScreen() {
                     onMemberClick = { member ->
                         try {
                             selectedMember = member
-                            // Populate Form
                             formName = member.name.ifEmpty { "" }
                             formNim = member.nim.ifEmpty { "" }
-                            // Try parse enum, default if fail
                             formGender = try { 
                                 Gender.valueOf(member.gender.uppercase()) 
                             } catch (e: Exception) { 
@@ -277,7 +268,7 @@ fun MembersScreen() {
                             }
                             formContact = member.contact.ifEmpty { "" }
                             formEmail = member.email ?: ""
-                            formPhotoPath = "" // Reset photo path for edit (photoUrl used for display)
+                            formPhotoPath = "" 
                             currentView = "detail"
                         } catch (e: Exception) {
                             Log.e("MembersScreen", "Error selecting member", e)
@@ -298,7 +289,6 @@ fun MembersScreen() {
                             onDelete = { showDeleteDialog = true }
                         )
                     } else {
-                        // Fallback jika selectedMember null
                         Column(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -376,7 +366,6 @@ fun MemberListView(
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Title
                 Text(
                     text = "Anggota Perpustakaan",
                     modifier = Modifier.padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 16.dp),
@@ -385,7 +374,6 @@ fun MemberListView(
                     color = Color.Black
                 )
                 
-                // Member List
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -411,7 +399,6 @@ fun MemberListView(
                     }
                 }
                 
-                // Add Member Button at bottom
                 Button(
                     onClick = onAddClick,
                     modifier = Modifier
@@ -449,7 +436,6 @@ fun MemberItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar
             val defaultPhoto = try {
                 if (member.gender.uppercase() == "LAKI_LAKI") R.drawable.default_pria else R.drawable.default_wanita
             } catch (e: Exception) {
@@ -469,7 +455,6 @@ fun MemberItem(
             
             Spacer(modifier = Modifier.width(16.dp))
             
-            // Info Section
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = member.name,
@@ -484,7 +469,6 @@ fun MemberItem(
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                // Faculty Badge
                 val facultyEnum = try {
                     Faculty.valueOf(member.faculty.uppercase())
                 } catch (e: Exception) {
@@ -508,10 +492,8 @@ fun MemberItem(
             }
             
             Spacer(modifier = Modifier.width(8.dp))
-            
-            // Action Buttons
+  
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Edit Button
                 IconButton(
                     onClick = onClick,
                     modifier = Modifier
@@ -526,7 +508,6 @@ fun MemberItem(
                     )
                 }
                 
-                // Delete Button  
                 IconButton(
                     onClick = onDelete,
                     modifier = Modifier
@@ -547,7 +528,6 @@ fun MemberItem(
 
 @Composable
 fun MemberDetailView(member: MemberApi, onEdit: () -> Unit, onDelete: () -> Unit) {
-    // Safe values untuk menghindari crash
     val safeName = member.name.ifEmpty { "-" }
     val safeNim = member.nim.ifEmpty { "-" }
     val safeGender = try {
@@ -574,7 +554,6 @@ fun MemberDetailView(member: MemberApi, onEdit: () -> Unit, onDelete: () -> Unit
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Determine default photo based on gender
         val defaultPhoto = try {
             if (member.gender.uppercase() == "LAKI_LAKI") R.drawable.default_pria else R.drawable.default_wanita
         } catch (e: Exception) {
@@ -666,12 +645,10 @@ fun AddEditMemberView(
         if (success) tempUri?.let { onPhotoPathChange(saveImageToInternalStorage(context, it, "member_cam")) }
     }
     
-    // ✅ Camera permission launcher
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            // Permission granted, launch camera
             val uri = createImageFileUri(context)
             if (uri != null) {
                 tempUri = uri
@@ -680,15 +657,12 @@ fun AddEditMemberView(
                 Toast.makeText(context, "Gagal membuat file foto", Toast.LENGTH_SHORT).show()
             }
         } else {
-            // Permission denied
             Toast.makeText(context, "Izin kamera diperlukan untuk mengambil foto", Toast.LENGTH_LONG).show()
         }
     }
 
-    // Filter majors based on selected faculty
     val availableMajors = remember(faculty) { faculty.getMajors() }
 
-    // Auto-reset major when faculty changes if current major is not in the new faculty's majors
     LaunchedEffect(faculty) {
         if (major !in faculty.getMajors()) {
             onMajorChange(faculty.getMajors().first())
@@ -698,7 +672,6 @@ fun AddEditMemberView(
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(Color.LightGray).clickable { showImageSourceDialog = true }, contentAlignment = Alignment.Center) {
-                // Determine default photo based on gender
                 val defaultPhoto = if (gender == Gender.LAKI_LAKI) R.drawable.default_pria else R.drawable.default_wanita
                 val model = if (photoPath.isNotEmpty()) File(photoPath) else photoUrl ?: defaultPhoto
                 AsyncImage(
@@ -715,7 +688,6 @@ fun AddEditMemberView(
             }
             Spacer(Modifier.height(16.dp))
 
-            // Input Nama
             OutlinedTextField(
                 value = name,
                 onValueChange = onNameChange,
@@ -726,7 +698,6 @@ fun AddEditMemberView(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Input NIM
             OutlinedTextField(
                 value = nim,
                 onValueChange = onNimChange,
@@ -734,12 +705,11 @@ fun AddEditMemberView(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                enabled = !isEdit, // Biasanya NIM tidak boleh diubah saat edit
+                enabled = !isEdit, 
                 shape = RoundedCornerShape(16.dp)
             )
             Spacer(Modifier.height(8.dp))
 
-            // Radio Button Gender
             Text("Jenis Kelamin *", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -780,7 +750,6 @@ fun AddEditMemberView(
             }
             Spacer(Modifier.height(8.dp))
 
-            // Dropdown Fakultas
             ExposedDropdownMenuBox(expanded = facultyExpanded, onExpandedChange = { facultyExpanded = !facultyExpanded }) {
                 OutlinedTextField(
                     value = faculty.name.replace("_", " "),
@@ -799,7 +768,7 @@ fun AddEditMemberView(
             }
             Spacer(Modifier.height(8.dp))
 
-            // Dropdown Jurusan (Major)
+            
             ExposedDropdownMenuBox(expanded = majorExpanded, onExpandedChange = { majorExpanded = !majorExpanded }) {
                 OutlinedTextField(
                     value = major.name.replace("_", " "),
@@ -818,7 +787,6 @@ fun AddEditMemberView(
             }
             Spacer(Modifier.height(8.dp))
 
-            // Kontak
             OutlinedTextField(
                 value = contact,
                 onValueChange = onContactChange,
@@ -830,7 +798,6 @@ fun AddEditMemberView(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Email
             OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
@@ -857,7 +824,6 @@ fun AddEditMemberView(
                     TextButton(onClick = { galleryLauncher.launch("image/*"); showImageSourceDialog = false }) { Text("Galeri") }
                     TextButton(onClick = {
                         showImageSourceDialog = false
-                        // ✅ Request camera permission first
                         cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                     }) { Text("Kamera") }
                 }
@@ -866,7 +832,6 @@ fun AddEditMemberView(
     }
 }
 
-// Helper functions (same as before)
 fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): String {
     val dir = File(context.filesDir, "images").apply { mkdirs() }
     val file = File(dir, "${prefix}_${System.currentTimeMillis()}.jpg")

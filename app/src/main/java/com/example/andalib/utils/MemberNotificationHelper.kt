@@ -10,9 +10,6 @@ import androidx.core.app.NotificationCompat
 import com.example.andalib.R
 import com.example.andalib.screen.member.MemberNotification
 
-/**
- * Helper class untuk manage member notifications
- */
 class MemberNotificationHelper(private val context: Context) {
     
     companion object {
@@ -21,7 +18,6 @@ class MemberNotificationHelper(private val context: Context) {
         private const val CHANNEL_DESCRIPTION = "Notifications for member management activities"
         private const val NOTIFICATION_ID_BASE = 1000
         
-        // SharedPreferences keys
         private const val PREFS_NAME = "member_notification_prefs"
         private const val KEY_LAST_NOTIFICATION_ID = "last_notification_id"
     }
@@ -33,9 +29,6 @@ class MemberNotificationHelper(private val context: Context) {
         createNotificationChannel()
     }
     
-    /**
-     * Create notification channel (required for Android 8.0+)
-     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -53,15 +46,11 @@ class MemberNotificationHelper(private val context: Context) {
         }
     }
     
-    /**
-     * Show notification untuk member activity
-     */
+  
     fun showNotification(notification: MemberNotification) {
-        // Intent untuk membuka app ketika notification di-tap
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("open_notifications", true) // Extra untuk navigate ke NotificationsScreen
-        }
+            putExtra("open_notifications", true)
         
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -70,7 +59,6 @@ class MemberNotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // Build notification
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground) // Ganti dengan icon notifikasi kamu
             .setContentTitle("Andalib Library - Aktivitas Anggota")
@@ -81,16 +69,11 @@ class MemberNotificationHelper(private val context: Context) {
             .setContentIntent(pendingIntent)
             .setVibrate(longArrayOf(0, 500, 250, 500))
         
-        // Show notification
         notificationManager.notify(NOTIFICATION_ID_BASE + notification.id, notificationBuilder.build())
         
-        // Save last notification ID
         saveLastNotificationId(notification.id)
     }
     
-    /**
-     * Show notification dengan title dan message langsung (untuk service)
-     */
     fun showNotification(title: String, message: String, notificationId: Int) {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -103,7 +86,6 @@ class MemberNotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // ✅ Full screen intent untuk memaksa heads-up notification
         val fullScreenIntent = PendingIntent.getActivity(
             context,
             notificationId,
@@ -116,23 +98,21 @@ class MemberNotificationHelper(private val context: Context) {
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(NotificationCompat.PRIORITY_MAX) // MAX priority for heads-up
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE) // Category message
+            .setPriority(NotificationCompat.PRIORITY_MAX) 
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE) 
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setFullScreenIntent(fullScreenIntent, true) // ✅ Force heads-up popup
-            .setVibrate(longArrayOf(0, 500, 250, 500)) // Vibration pattern
-            .setDefaults(NotificationCompat.DEFAULT_SOUND) // Default notification sound
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lockscreen
-            .setTimeoutAfter(5000) // Auto-dismiss after 5 seconds
+            .setFullScreenIntent(fullScreenIntent, true) 
+            .setVibrate(longArrayOf(0, 500, 250, 500)) 
+            .setDefaults(NotificationCompat.DEFAULT_SOUND) 
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) 
+            .setTimeoutAfter(5000) 
         
         notificationManager.notify(NOTIFICATION_ID_BASE + notificationId, notificationBuilder.build())
         saveLastNotificationId(notificationId)
     }
     
-    /**
-     * Show multiple notifications
-     */
+
     fun showNotifications(notifications: List<MemberNotification>) {
         notifications.forEach { notification ->
             if (!notification.isRead) {
@@ -141,30 +121,22 @@ class MemberNotificationHelper(private val context: Context) {
         }
     }
     
-    /**
-     * Get last notification ID yang sudah ditampilkan
-     */
+
     fun getLastNotificationId(): Int {
         return prefs.getInt(KEY_LAST_NOTIFICATION_ID, 0)
     }
     
-    /**
-     * Save last notification ID
-     */
+  
     private fun saveLastNotificationId(id: Int) {
         prefs.edit().putInt(KEY_LAST_NOTIFICATION_ID, id).apply()
     }
     
-    /**
-     * Clear all notifications
-     */
+
     fun clearAllNotifications() {
         notificationManager.cancelAll()
     }
     
-    /**
-     * Clear specific notification
-     */
+
     fun clearNotification(notificationId: Int) {
         notificationManager.cancel(NOTIFICATION_ID_BASE + notificationId)
     }

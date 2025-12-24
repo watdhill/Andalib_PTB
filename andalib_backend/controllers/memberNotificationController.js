@@ -1,15 +1,8 @@
-// ============================================================
-// NOTIFICATION CONTROLLER (GENERIC)
-// ============================================================
-// Controller untuk handle generic notification system
-// Support berbagai tipe: MEMBER_DELETED, BOOK_ADDED, etc
+
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// ============================================================
-// 1. GET UNREAD NOTIFICATIONS
-// ============================================================
 const getUnreadNotifications = async (req, res) => {
     try {
         const currentAdminId = req.user.id;
@@ -24,7 +17,7 @@ const getUnreadNotifications = async (req, res) => {
             }
         });
 
-        // Format response & parse metadata
+    
         const formattedNotifications = notifications.map(notif => {
             let parsedMetadata = {};
             try {
@@ -63,9 +56,6 @@ const getUnreadNotifications = async (req, res) => {
     }
 };
 
-// ============================================================
-// 2. GET ALL NOTIFICATIONS
-// ============================================================
 const getAllNotifications = async (req, res) => {
     try {
         const currentAdminId = req.user.id;
@@ -117,9 +107,6 @@ const getAllNotifications = async (req, res) => {
     }
 };
 
-// ============================================================
-// 3. MARK NOTIFICATION AS READ
-// ============================================================
 const markAsRead = async (req, res) => {
     try {
         const notificationId = parseInt(req.params.id);
@@ -139,7 +126,7 @@ const markAsRead = async (req, res) => {
             });
         }
 
-        // ✅ Update isRead dan readAt (akan dihapus 2 menit kemudian oleh cleanup job)
+        
         await prisma.notification.update({
             where: {
                 id: notificationId
@@ -163,9 +150,7 @@ const markAsRead = async (req, res) => {
     }
 };
 
-// ============================================================
-// 4. GET UNREAD COUNT
-// ============================================================
+
 const getUnreadCount = async (req, res) => {
     try {
         const currentAdminId = req.user.id;
