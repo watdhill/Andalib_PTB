@@ -19,7 +19,6 @@ import kotlinx.coroutines.delay
 fun StartScreen(
     onNavigateToLogin: () -> Unit = {}
 ) {
-    // Auto navigate setelah 2 detik
     LaunchedEffect(Unit) {
         delay(2000)
         onNavigateToLogin()
@@ -33,13 +32,13 @@ fun StartScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // --- DIUBAH: Menampilkan logo.png ---
+
             Image(
                 painter = painterResource(id = R.drawable.logo),
                 contentDescription = "Logo Andalib",
-                modifier = Modifier.size(150.dp) // Sesuaikan ukuran logo
+                modifier = Modifier.size(150.dp)
             )
-            // --- AKHIR PERUBAHAN ---
+
         }
     }
 }

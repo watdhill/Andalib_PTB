@@ -1,7 +1,9 @@
+// app/build.gradle.kts
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -14,7 +16,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,17 +28,14 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-    buildFeatures {
-        compose = true
-    }
+    kotlinOptions { jvmTarget = "11" }
+    buildFeatures { compose = true }
 }
 
 dependencies {
@@ -54,9 +52,6 @@ dependencies {
     implementation ("androidx.compose.ui:ui-tooling-preview")
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.5")
-
-    // Coil untuk load gambar ← TAMBAHKAN INI
-    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Material Icons Extended ← TAMBAHKAN INI
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
@@ -88,4 +83,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }

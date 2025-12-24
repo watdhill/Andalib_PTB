@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "683215473652",
+    "project_id": "ptbikhwan",
+    "storage_bucket": "ptbikhwan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683215473652:android:f10a9510df30a355e507a1",
+        "android_client_info": {
+          "package_name": "com.example.andalib"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxlz63STzBsE3zuHNuUn4cMo1XsEEZOP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683215473652:android:0b28bbdf1f9662bee507a1",
+        "android_client_info": {
+          "package_name": "com.example.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxlz63STzBsE3zuHNuUn4cMo1XsEEZOP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -176,9 +176,64 @@ const getUnreadCount = async (req, res) => {
     }
 };
 
+// ============================================================
+// 5. CREATE BOOK NOTIFICATION
+// ============================================================
+const createBookNotification = async (req, res) => {
+    try {
+        const currentAdminId = req.user.id;
+        const { type, title, message, bookTitle, bookIsbn } = req.body;
+
+        // Validate required fields
+        if (!type || !title || !message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Type, title, dan message wajib diisi'
+            });
+        }
+
+        // Create metadata
+        const metadata = {
+            bookTitle: bookTitle || null,
+            bookIsbn: bookIsbn || null,
+            createdBy: req.user.email || null
+        };
+
+        // Create notification
+        const notification = await prisma.notification.create({
+            data: {
+                adminId: currentAdminId,
+                type: type,
+                title: title,
+                message: message,
+                metadata: JSON.stringify(metadata),
+                isRead: false
+            }
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Notifikasi berhasil dibuat',
+            data: {
+                id: notification.id,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message
+            }
+        });
+    } catch (error) {
+        console.error('Create Book Notification Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Gagal membuat notifikasi'
+        });
+    }
+};
+
 module.exports = {
     getUnreadNotifications,
     getAllNotifications,
     markAsRead,
-    getUnreadCount
+    getUnreadCount,
+    createBookNotification
 };

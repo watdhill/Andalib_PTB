@@ -7,12 +7,18 @@ const prisma = new PrismaClient();
  * Menambahkan Buku baru ke database
  */
 const createBuku = async (req, res) => {
-    const { title, author, publicationYear, quantity, kategoriId, kategoriName } = req.body;
+    const { isbn, title, author, publicationYear, stok, kategoriId, kategoriName } = req.body;
 
-    if (!title || !author || (!kategoriId && !kategoriName)) {
-        return res.status(400).json({ message: 'Field title, author, dan kategori (id atau name) wajib diisi.' });
+    if (!isbn || !title || !author || (!kategoriId && !kategoriName)) {
+        return res.status(400).json({ message: 'Field isbn, title, author, dan kategori (id atau name) wajib diisi.' });
     }
     try {
+        // Cek apakah ISBN sudah digunakan
+        const existingBuku = await prisma.buku.findUnique({ where: { isbn } });
+        if (existingBuku) {
+            return res.status(400).json({ message: 'ISBN sudah digunakan oleh buku lain.' });
+        }
+
         // Tentukan kategori: gunakan kategoriId jika ada, atau cari/buat berdasarkan kategoriName
         let kategori;
         if (kategoriId) {
@@ -30,10 +36,11 @@ const createBuku = async (req, res) => {
 
         const newBuku = await prisma.buku.create({
             data: {
+                isbn,
                 title,
                 author,
                 publicationYear: publicationYear ? Number(publicationYear) : null,
-                quantity: quantity ? Number(quantity) : undefined,
+                stok: stok ? Number(stok) : 1,
                 kategori: { connect: { id: kategori.id } },
             },
         });
@@ -41,6 +48,10 @@ const createBuku = async (req, res) => {
         res.status(201).json({ message: 'Buku berhasil ditambahkan', buku: newBuku });
     } catch (error) {
         console.error('Error creating Buku:', error);
+        // Handle unique constraint error dari database
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'ISBN sudah digunakan oleh buku lain.' });
+        }
         res.status(500).json({ message: 'Gagal menambahkan buku.' });
     }
 };
@@ -58,6 +69,36 @@ const getAllBuku = async (req, res) => {
     } catch (error) {
         console.error('Error fetching Buku:', error);
         res.status(500).json({ message: 'Gagal mengambil data buku.' });
+    }
+};
+
+/**
+ * Mencari Buku berdasarkan query
+ */
+const searchBuku = async (req, res) => {
+    const { q } = req.query;
+
+    if (!q || q.length < 1) {
+        return res.json([]);
+    }
+
+    try {
+        const bukuList = await prisma.buku.findMany({
+            where: {
+                OR: [
+                    { isbn: { contains: q } },
+                    { title: { contains: q } },
+                    { author: { contains: q } }
+                ]
+            },
+            include: { kategori: true },
+            take: 10,
+            orderBy: { title: 'asc' }
+        });
+        res.status(200).json(bukuList);
+    } catch (error) {
+        console.error('Search Buku Error:', error);
+        res.status(500).json({ message: 'Gagal mencari buku.' });
     }
 };
 
@@ -84,9 +125,9 @@ const getBukuById = async (req, res) => {
  */
 const updateBuku = async (req, res) => {
     const id = parseInt(req.params.id);
-    const { title, author, publicationYear, quantity, kategoriId } = req.body;
+    const { isbn, title, author, publicationYear, stok, kategoriId, kategoriName } = req.body;
 
-    if (!title && !author && !publicationYear && !quantity && !kategoriId) {
+    if (!isbn && !title && !author && !publicationYear && !stok && !kategoriId && !kategoriName) {
         return res.status(400).json({ message: 'Setidaknya satu field harus diisi untuk update.' });
     }
 
@@ -94,6 +135,14 @@ const updateBuku = async (req, res) => {
         // Pastikan buku ada
         const existing = await prisma.buku.findUnique({ where: { id } });
         if (!existing) return res.status(404).json({ message: 'Buku tidak ditemukan.' });
+
+        // Cek apakah ISBN baru sudah digunakan oleh buku lain
+        if (isbn && isbn !== existing.isbn) {
+            const existingIsbn = await prisma.buku.findUnique({ where: { isbn } });
+            if (existingIsbn) {
+                return res.status(400).json({ message: 'ISBN sudah digunakan oleh buku lain.' });
+            }
+        }
 
         // Jika kategoriId atau kategoriName diberikan, pastikan atau buat kategori
         let connectKategori = undefined;
@@ -112,10 +161,11 @@ const updateBuku = async (req, res) => {
         const updated = await prisma.buku.update({
             where: { id },
             data: {
+                ...(isbn !== undefined ? { isbn } : {}),
                 ...(title !== undefined ? { title } : {}),
                 ...(author !== undefined ? { author } : {}),
                 ...(publicationYear !== undefined ? { publicationYear: publicationYear ? Number(publicationYear) : null } : {}),
-                ...(quantity !== undefined ? { quantity: Number(quantity) } : {}),
+                ...(stok !== undefined ? { stok: Number(stok) } : {}),
                 ...(connectKategori ? { kategori: connectKategori } : {}),
             },
             include: { kategori: true },
@@ -125,6 +175,10 @@ const updateBuku = async (req, res) => {
     } catch (error) {
         console.error('Error updating Buku:', error);
         if (error.code === 'P2025') return res.status(404).json({ message: 'Buku tidak ditemukan.' });
+        // Handle unique constraint error dari database
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'ISBN sudah digunakan oleh buku lain.' });
+        }
         res.status(500).json({ message: 'Gagal mengubah data buku.' });
     }
 };
@@ -141,7 +195,7 @@ const deleteBuku = async (req, res) => {
         if (!existing) return res.status(404).json({ message: 'Buku tidak ditemukan.' });
 
         // cek peminjaman aktif terkait buku
-        const activeBorrowings = await prisma.peminjaman.count({ where: { bukuId: id, isReturned: false } });
+        const activeBorrowings = await prisma.peminjaman.count({ where: { bukuId: id, status: 'DIPINJAM' } });
         if (activeBorrowings > 0) {
             return res.status(400).json({ message: `Buku ini tidak bisa dihapus karena ada ${activeBorrowings} peminjaman aktif.` });
         }
@@ -158,6 +212,7 @@ const deleteBuku = async (req, res) => {
 module.exports = {
     createBuku,
     getAllBuku,
+    searchBuku,
     getBukuById,
     updateBuku,
     deleteBuku,

@@ -3,28 +3,38 @@ package com.example.andalib.data.network
 import com.example.andalib.screen.member.ApiResponse
 import com.example.andalib.screen.member.MemberNotificationResponse
 import com.example.andalib.screen.member.NotificationCountResponse
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 
 
+data class CreateNotificationRequest(
+    val type: String,
+    val title: String,
+    val message: String,
+    val bookTitle: String? = null,
+    val bookIsbn: String? = null
+)
+
+
 interface MemberNotificationService {
-    
 
     @GET("member-notifications/unread")
     suspend fun getUnreadNotifications(): MemberNotificationResponse
-    
-
+  
     @GET("member-notifications")
     suspend fun getAllNotifications(): MemberNotificationResponse
-    
-
+  
     @PUT("member-notifications/{id}/read")
     suspend fun markAsRead(@Path("id") id: Int): ApiResponse
-    
 
     @GET("member-notifications/count")
     suspend fun getUnreadCount(): NotificationCountResponse
+    
+    @POST("member-notifications")
+    suspend fun createNotification(@Body request: CreateNotificationRequest): ApiResponse
 }
 
 

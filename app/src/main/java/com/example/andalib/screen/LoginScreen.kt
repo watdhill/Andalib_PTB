@@ -34,13 +34,12 @@ import com.example.andalib.screen.pengembalian.AndalibTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    // PERUBAHAN: Hanya callback sukses (dipanggil ViewModel)
+
     onLoginSuccess: () -> Unit = {},
     onSignUpClicked: () -> Unit = {},
     onBackClicked: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    // Dapatkan ViewModel dengan Factory
     val viewModel: LoginViewModel = viewModel(
         factory = LoginViewModelFactory(context.applicationContext)
     )
@@ -51,9 +50,6 @@ fun LoginScreen(
     val loginState by viewModel.loginState.collectAsState()
     val isLoading = loginState is LoginViewModel.LoginUiState.Loading
 
-    // Hapus showNotification dan notificationMessage yang lama
-
-    // Efek untuk Navigasi dan Menampilkan Error API
     LaunchedEffect(key1 = loginState) {
         when (loginState) {
             is LoginViewModel.LoginUiState.Success -> {
@@ -135,7 +131,6 @@ fun LoginScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // --- Ilustrasi Lingkaran ---
             Box(
                 modifier = Modifier.size(180.dp),
                 contentAlignment = Alignment.Center
@@ -175,7 +170,6 @@ fun LoginScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // --- Input Email ---
             AndalibTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -184,7 +178,6 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Input Password ---
             AndalibPasswordField(
                 value = password,
                 onValueChange = { password = it },
@@ -196,7 +189,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // --- Tombol Login ---
+
             AndalibButton(
                 text = "Log in",
                 onClick = { handleLogin() } // Gunakan handler baru
@@ -204,7 +197,7 @@ fun LoginScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // --- Link Sign Up ---
+
             ClickableAuthText(
                 prefixText = "Belum punya akun?",
                 clickableText = "Sign Up",

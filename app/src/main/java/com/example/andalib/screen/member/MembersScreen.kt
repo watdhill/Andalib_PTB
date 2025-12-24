@@ -833,7 +833,9 @@ fun AddEditMemberView(
 }
 
 fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): String {
-    val file = File(context.filesDir, "${prefix}_${System.currentTimeMillis()}.jpg")
+    val dir = File(context.filesDir, "images").apply { mkdirs() }
+    val file = File(dir, "${prefix}_${System.currentTimeMillis()}.jpg")
+
     context.contentResolver.openInputStream(uri)?.use { input ->
         FileOutputStream(file).use { output -> input.copyTo(output) }
     }
@@ -841,8 +843,16 @@ fun saveImageToInternalStorage(context: Context, uri: Uri, prefix: String): Stri
 }
 
 fun createImageFileUri(context: Context): Uri? {
-    val file = File(context.cacheDir, "temp_image_${System.currentTimeMillis()}.jpg")
+    val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+    val file = File(cameraDir, "temp_image_${System.currentTimeMillis()}.jpg")
+
     return try {
-        FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-    } catch (e: Exception) { null }
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            file
+        )
+    } catch (e: Exception) {
+        null
+    }
 }

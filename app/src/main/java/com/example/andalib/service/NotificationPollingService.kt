@@ -51,11 +51,17 @@ class NotificationPollingService : Service() {
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        android.util.Log.d("NotificationService", "📱 Service started!")
+        
         // Start foreground dengan persistent notification
         startForeground(SERVICE_ID, createForegroundNotification())
         
+        android.util.Log.d("NotificationService", "✅ Foreground notification set")
+        
         // Start polling
         startPolling()
+        
+        android.util.Log.d("NotificationService", "✅ Polling started")
         
         return START_STICKY // Restart service jika di-kill oleh system
     }
@@ -104,15 +110,20 @@ class NotificationPollingService : Service() {
     private fun startPolling() {
         pollingJob?.cancel() // Cancel existing job jika ada
         
+        android.util.Log.d("NotificationService", "🚀 Starting notification polling...")
+        
         pollingJob = serviceScope.launch {
             while (isActive) {
                 try {
+                    android.util.Log.d("NotificationService", "⏱️ Poll cycle started")
                     checkNotifications()
                 } catch (e: Exception) {
+                    android.util.Log.e("NotificationService", "❌ Error in polling cycle: ${e.message}")
                     e.printStackTrace()
                 }
                 
                 // Wait 1 minute before next poll
+                android.util.Log.d("NotificationService", "⏳ Waiting ${POLLING_INTERVAL_MS}ms before next poll...")
                 delay(POLLING_INTERVAL_MS)
             }
         }
@@ -123,21 +134,30 @@ class NotificationPollingService : Service() {
             android.util.Log.d("NotificationService", "🔍 Checking for notifications...")
             
             val tokenManager = TokenManager(this)
-            val token = tokenManager.getToken()
+            val token = tokenManager.getToken() // ✅ Ini sudah suspend context, boleh langsung
+            android.util.Log.d("NotificationService", "📌 Token loaded: ${token?.take(20)}... (length=${token?.length})")
+            
+            if (token.isNullOrEmpty()) {
+                android.util.Log.e("NotificationService", "❌ ERROR: Token is null/empty!")
+                return
+            }
+            
+            android.util.Log.d("NotificationService", "🌐 Creating API service...")
             val apiService = createMemberNotificationService(token)
             
+            android.util.Log.d("NotificationService", "📤 Calling getUnreadNotifications()...")
             val response = apiService.getUnreadNotifications()
             
-            android.util.Log.d("NotificationService", "📡 API Response: success=${response.success}, count=${response.data.size}")
+            android.util.Log.d("NotificationService", "📥 API Response: success=${response.success}, count=${response.data.size}, message=${response.message}")
             
             if (response.success && response.data.isNotEmpty()) {
                 // Ada notifikasi baru, show notification
                 val helper = MemberNotificationHelper(this)
                 
-                android.util.Log.d("NotificationService", "🔔 Showing ${response.data.size} notifications")
+                android.util.Log.d("NotificationService", "✅ Found ${response.data.size} notifications, showing...")
                 
                 response.data.forEach { notification ->
-                    android.util.Log.d("NotificationService", "📬 Notification ID=${notification.id}, Title=${notification.title}")
+                    android.util.Log.d("NotificationService", "📬 Showing: ID=${notification.id}, Title='${notification.title}'")
                     
                     helper.showNotification(
                         title = notification.title ?: "Notifikasi Anggota",
@@ -154,7 +174,7 @@ class NotificationPollingService : Service() {
                     }
                 }
             } else {
-                android.util.Log.d("NotificationService", "✅ No new notifications")
+                android.util.Log.d("NotificationService", "✅ No new notifications (success=${response.success}, count=${response.data.size})")
             }
         } catch (e: Exception) {
             // Log error untuk debugging

@@ -41,42 +41,38 @@ import com.example.andalib.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
-    // HAPUS onSignUpSuccess karena tidak digunakan, hanya pakai onSignUpComplete
     onSignUpComplete: () -> Unit = {},
     onLoginClicked: () -> Unit = {},
     onBackClicked: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
-    // --- PERBAIKAN VIEWMODEL ---
-    // Tambahkan factory ke pemanggilan viewModel
     val viewModel: SignUpViewModel = viewModel(
         factory = SignUpViewModelFactory(context.applicationContext)
     )
 
-    // STATE Input
+
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    // STATE ViewModel
+
     val signUpState by viewModel.signUpState.collectAsState()
     val isLoading = signUpState is SignUpViewModel.SignUpUiState.Loading
 
-    // 2. Efek untuk Navigasi dan Menampilkan Error API
+
     LaunchedEffect(key1 = signUpState) {
         when (signUpState) {
             is SignUpViewModel.SignUpUiState.Success -> {
                 val message = (signUpState as SignUpViewModel.SignUpUiState.Success).message
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
 
-                // --- PERBAIKAN: GANTI BARIS KOMENTAR YANG SALAH KETIK ---
-                // Bersihkan field input sebelum navigasi
+
                 name = ""
                 email = ""
                 password = ""
 
-                // 3. NAVIGASI
+
                 onSignUpComplete()
             }
             is SignUpViewModel.SignUpUiState.Error -> {
@@ -88,7 +84,7 @@ fun SignUpScreen(
         }
     }
 
-    // Handler saat tombol diklik: Panggil fungsi ViewModel
+
     val handleSignUp = {
         viewModel.signup(name, email, password)
     }
@@ -129,7 +125,7 @@ fun SignUpScreen(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // --- Judul dan Ilustrasi (Kode tetap sama) ---
+
             Text(
                 text = "Buat Akun",
                 style = MaterialTheme.typography.headlineSmall,
@@ -146,19 +142,19 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // --- Ilustrasi dengan dots ---
+
             Box(
                 modifier = Modifier.size(180.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Background circle
+
                 Box(
                     modifier = Modifier
                         .size(120.dp)
                         .background(AndalibBackground, shape = CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    // User icon dengan background navy
+
                     Box(
                         modifier = Modifier
                             .size(70.dp)
@@ -174,7 +170,7 @@ fun SignUpScreen(
                     }
                 }
 
-                // Decorative dots
+
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val colors = listOf(
                         Color(0xFF6B9BD1),
@@ -218,7 +214,7 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // --- Input Nama ---
+
             AndalibTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -227,7 +223,7 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Input Email ---
+
             AndalibTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -240,7 +236,7 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Input Password ---
+
             AndalibPasswordField(
                 value = password,
                 onValueChange = { password = it },
@@ -252,7 +248,7 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(32.dp)) // Tambahkan spacer yang hilang
 
-            // --- Tombol Sign Up ---
+
             AndalibButton(
                 text = if (isLoading) "Memproses..." else "Sign up",
                 onClick = { handleSignUp() }
@@ -260,7 +256,7 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Link Login ---
+
             ClickableAuthText(
                 prefixText = "Punya akun?",
                 clickableText = "Log In",
@@ -270,7 +266,7 @@ fun SignUpScreen(
         }
     }
 
-    // 3. Tampilkan Progress Dialog
+
     if (isLoading) {
         AlertDialog(
             onDismissRequest = { /* Tidak bisa di-dismiss saat loading */ },

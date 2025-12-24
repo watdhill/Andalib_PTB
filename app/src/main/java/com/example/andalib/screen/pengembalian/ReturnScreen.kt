@@ -1,55 +1,121 @@
 package com.example.andalib.screen.pengembalian
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.app.DatePickerDialog
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.QuestionMark
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.andalib.data.TokenManager
 import com.example.andalib.data.network.ApiService
 import com.example.andalib.data.network.ReturnHistoryResponse
 import com.example.andalib.data.network.ReturnRequest
 import com.example.andalib.data.network.createApiService
+import com.example.andalib.data.network.uriToMultipart
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,16 +123,74 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 import java.util.concurrent.TimeUnit
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
+import android.app.DatePickerDialog as AndroidDatePickerDialog
 
+// =========================================================
+// 0. (MODEL UPLOAD RESPONSE) - tetap dipakai untuk upload bukti kerusakan
+// =========================================================
+data class UploadDamageProofResponse(
+    @SerializedName("success")
+    val success: Boolean,
+
+    @SerializedName("buktiKerusakanUrl")
+    val buktiKerusakanUrl: String? = null,
+
+    @SerializedName("url")
+    val url: String? = null,
+
+    @SerializedName("message")
+    val message: String? = null
+)
+
+// =========================================================
+// 0B. FIREBASE FCM SETUP (permission + token)
+// =========================================================
+@Composable
+private fun FirebaseNotificationSetup(
+    onTokenReady: ((String) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
+    // Request permission POST_NOTIFICATIONS untuk Android 13+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        Log.d("FCM", "POST_NOTIFICATIONS granted=$granted")
+    }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Ambil token FCM
+        FirebaseMessaging.getInstance().token
+            .addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    Log.e("FCM", "Fetching FCM token failed", task.exception)
+                    return@addOnCompleteListener
+                }
+                val token = task.result
+                Log.d("FCM", "FCM token: $token")
+                onTokenReady?.invoke(token)
+
+                // Jika Anda punya endpoint untuk simpan token ke backend,
+                // panggil di luar sini (misalnya di ReturnScreen setelah token didapat).
+            }
+    }
+}
 
 // =========================================================
 // 1. TEMA DAN KONSTANTA
 // =========================================================
-
 val BlueDarkest = Color(0xFF021024)
 val BlueDark = Color(0xFF052659)
 val BlueMedium = Color(0xFF5483B3)
@@ -94,25 +218,22 @@ fun AndalibTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = LightColorScheme, content = content)
 }
 
-// NIM diubah menjadi String agar sesuai dengan format umum
 data class Member(val nim: String, val name: String, val email: String)
 data class Book(val id: Int, val title: String, val author: String)
 
-// borrowingId menggunakan String (sesuai id peminjaman backend)
 data class ActiveBorrowing(
-    val borrowingId: String, // ID Peminjaman
+    val borrowingId: String,
     val book: Book,
     val borrowDate: String,
     val dueDate: String
 )
 
-// loanId menggunakan String (ID Peminjaman)
 data class ReturnHistoryItem(
     val id: String,
     val title: String,
-    val member: String,      // Nama Anggota
-    val memberNim: String,   // NIM Anggota
-    val loanId: String,      // ID Pinjaman
+    val member: String,
+    val memberNim: String,
+    val loanId: String,
     val borrowDate: String,
     val dueDate: String,
     val returnDate: String,
@@ -125,28 +246,16 @@ data class ReturnHistoryItem(
 // =========================================================
 //  BOTTOM NAV
 // =========================================================
-
 sealed class BottomNavItem(
     val route: String,
     val title: String,
     val icon: ImageVector
 ) {
     object Home : BottomNavItem(route = "home", title = "Home", icon = Icons.Filled.Home)
-    object Books :
-        BottomNavItem(route = "books", title = "Buku", icon = Icons.AutoMirrored.Filled.MenuBook)
-
-    object Borrowing :
-        BottomNavItem(route = "borrowing", title = "Peminjaman", icon = Icons.Filled.Book)
-
-    object Return :
-        BottomNavItem(
-            route = "return",
-            title = "Pengembalian",
-            icon = Icons.AutoMirrored.Filled.AssignmentReturn
-        )
-
-    object Members :
-        BottomNavItem(route = "members", title = "Anggota", icon = Icons.Filled.People)
+    object Books : BottomNavItem(route = "books", title = "Buku", icon = Icons.AutoMirrored.Filled.MenuBook)
+    object Borrowing : BottomNavItem(route = "borrowing", title = "Peminjaman", icon = Icons.Filled.Book)
+    object Return : BottomNavItem(route = "return", title = "Pengembalian", icon = Icons.AutoMirrored.Filled.AssignmentReturn)
+    object Members : BottomNavItem(route = "members", title = "Anggota", icon = Icons.Filled.People)
 }
 
 val bottomNavItems = listOf(
@@ -184,7 +293,6 @@ object NavAnimations {
 // =========================================================
 // 2. LOGIKA PEMBANTU
 // =========================================================
-
 private const val FINE_PER_DAY = 3000
 
 @SuppressLint("ConstantLocale")
@@ -215,7 +323,16 @@ fun formatRupiah(amount: Int): String {
     return formatter.format(amount).replace("Rp", "Rp.").trim()
 }
 
-// Helper untuk menghilangkan efek ripple pada Composable
+fun isReturnDateValid(borrowDateStr: String, returnDateStr: String): Boolean {
+    return try {
+        val borrow = dateFormat.parse(borrowDateStr) ?: return false
+        val ret = dateFormat.parse(returnDateStr) ?: return false
+        !ret.before(borrow)
+    } catch (_: Exception) {
+        false
+    }
+}
+
 private class NoRippleInteractionSource : MutableInteractionSource {
     override val interactions: kotlinx.coroutines.flow.Flow<androidx.compose.foundation.interaction.Interaction> =
         kotlinx.coroutines.flow.emptyFlow()
@@ -227,12 +344,12 @@ private class NoRippleInteractionSource : MutableInteractionSource {
 // =========================================================
 // 3. KOMPONEN PEMBANTU
 // =========================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppBarHeader(
     title: String,
-    onBackClick: (() -> Unit)? = null
+    onBackClick: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
         title = {
@@ -254,7 +371,8 @@ fun AppBarHeader(
                     )
                 }
             }
-        }
+        },
+        actions = actions
     )
 }
 
@@ -314,8 +432,7 @@ fun StatItem(
 @Composable
 fun HistoryItem(
     item: ReturnHistoryItem,
-    onEdit: (String) -> Unit,
-    onDelete: (String) -> Unit
+    onDetail: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -324,12 +441,14 @@ fun HistoryItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(item.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
                 if (item.isLate) {
                     Row(
                         modifier = Modifier
@@ -354,13 +473,15 @@ fun HistoryItem(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 "Peminjam: ${item.member}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(10.dp))
             DataRow(label = "Tanggal Pinjam", value = item.borrowDate)
             DataRow(label = "Jatuh Tempo", value = item.dueDate)
             DataRow(label = "Dikembalikan", value = item.returnDate)
@@ -371,13 +492,13 @@ fun HistoryItem(
             }
 
             if (item.isLate) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
-                        .padding(8.dp)
+                        .padding(10.dp)
                 ) {
                     Text(
                         "Denda Keterlambatan",
@@ -394,41 +515,21 @@ fun HistoryItem(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.End,
-                modifier = Modifier.fillMaxWidth()
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { onDetail(item.id) },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-
-                Button(
-                    onClick = { onEdit(item.id) },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    modifier = Modifier.sizeIn(minWidth = 70.dp, minHeight = 40.dp)
-                ) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit")
-                }
-
+                Icon(Icons.Filled.Visibility, contentDescription = "Detail", modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = { onDelete(item.id) },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ),
-                    modifier = Modifier.sizeIn(minWidth = 70.dp, minHeight = 40.dp)
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Hapus")
-                }
+                Text("Lihat Detail", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -451,67 +552,45 @@ fun DataRow(label: String, value: String) {
 
 @Composable
 fun UploadProofSection(
-    onUploadClick: () -> Unit,
     proofUri: Uri?,
-    proofFileName: String?
+    onPickClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Bukti Kerusakan (Opsional)", fontWeight = FontWeight.SemiBold)
 
         Button(
-            onClick = onUploadClick,
+            onClick = onPickClick,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
-            Icon(Icons.Filled.Upload, contentDescription = "Upload")
-            Spacer(modifier = Modifier.width(8.dp))
-            val buttonText = when {
-                proofUri != null -> "Ganti Bukti (${proofFileName ?: "File Terpilih"})"
-                else -> "Upload Bukti"
-            }
-            Text(buttonText, fontWeight = FontWeight.Bold)
+            Icon(Icons.Filled.Upload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                if (proofUri == null) "Upload Bukti" else "Ganti Bukti",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
 
         if (proofUri != null) {
-            Column(modifier = Modifier.padding(top = 8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                     AsyncImage(
                         model = proofUri,
-                        contentDescription = "Bukti kerusakan",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        contentDescription = "Preview Bukti",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "File terpilih: ${proofFileName ?: proofUri.lastPathSegment}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
             }
         }
     }
 }
-
 
 @Composable
 fun StatusSelection(
@@ -594,33 +673,23 @@ fun SimpleDatePickerDialog(
 ) {
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate)
 
-    DatePickerDialog(
+    androidx.compose.material3.DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
                 onClick = {
                     val millis = datePickerState.selectedDateMillis
                     if (millis != null) {
-                        val formatted = SimpleDateFormat(
-                            "dd/MM/yyyy",
-                            Locale.getDefault()
-                        ).format(Date(millis))
-
-                        Log.d("DatePicker", "OK ditekan, tanggal: $formatted")
+                        val formatted = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            .format(Date(millis))
                         onDateSelected(formatted)
                     }
                     onDismiss()
                 },
                 enabled = datePickerState.selectedDateMillis != null
-            ) {
-                Text("OK")
-            }
+            ) { Text("OK") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Batal")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     ) {
         DatePicker(state = datePickerState)
     }
@@ -672,17 +741,14 @@ fun DeleteConfirmationDialog(
                     colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Hapus", color = MaterialTheme.colorScheme.onError)
-                }
+                ) { Text("Hapus", color = MaterialTheme.colorScheme.onError) }
+
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Batal", color = MaterialTheme.colorScheme.onPrimary)
-                }
+                ) { Text("Batal", color = MaterialTheme.colorScheme.onPrimary) }
             }
         },
         dismissButton = {}
@@ -739,10 +805,7 @@ fun ReturnSuccessDialog(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
-                Button(
-                    onClick = onOk,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
+                Button(onClick = onOk, shape = RoundedCornerShape(8.dp)) {
                     Text("OK", fontWeight = FontWeight.Bold)
                 }
             }
@@ -751,258 +814,50 @@ fun ReturnSuccessDialog(
     )
 }
 
-
 @Composable
-fun MemberCard(
-    member: Member,
-    isSelected: Boolean,
-    onClick: (Member) -> Unit
+private fun SimpleErrorDialog(
+    title: String,
+    message: String,
+    onClose: () -> Unit
 ) {
-    val borderColor =
-        if (isSelected) MaterialTheme.colorScheme.primary
-        else Color.Transparent
-
-    val bgColor =
-        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        else MaterialTheme.colorScheme.surfaceVariant
-
-    val nameColor =
-        if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.onSurface
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick(member) },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        border = BorderStroke(1.5.dp, borderColor),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 0.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (isSelected)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            Color.Gray.copy(alpha = 0.2f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    member.name.first().toString(),
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.Black
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    member.name,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = nameColor
-                )
-                Text(
-                    "NIM: ${member.nim} | ${member.email}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-
-            Icon(
-                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.ArrowForwardIos,
-                contentDescription = null,
-                tint = if (isSelected)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
-
-
-@Composable
-fun BorrowingCard(
-    borrowing: ActiveBorrowing,
-    isSelected: Boolean,
-    onClick: (ActiveBorrowing) -> Unit
-) {
-    val borderColor =
-        if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-
-    val bgColor =
-        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-        else MaterialTheme.colorScheme.background
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { NoRippleInteractionSource() },
-                indication = null
-            ) { onClick(borrowing) }
-            .border(1.5.dp, borderColor, RoundedCornerShape(8.dp)),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    borrowing.book.title,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = "Dipilih",
-                    tint = if (isSelected)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                )
-            }
-            Text(
-                borrowing.book.author,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            DataRow(label = "Tgl Pinjam", value = borrowing.borrowDate)
-            DataRow(label = "Jatuh Tempo", value = borrowing.dueDate)
-        }
-    }
-}
-@Composable
-fun DatePickerFields(
-    borrowDate: String,
-    dueDate: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-    ) {
-        Text("Detail Peminjaman", fontWeight = FontWeight.SemiBold)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Tanggal Pinjam",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                OutlinedTextField(
-                    value = borrowDate,
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = false,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Jatuh Tempo",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                OutlinedTextField(
-                    value = dueDate,
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = false,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledBorderColor = MaterialTheme.colorScheme.error
-                    )
-                )
-            }
-        }
-    }
-}
-
-/**
- * Field tanggal versi “bar” (bukan TextField) untuk dipakai dengan DatePickerDialog Android.
- */
-@Composable
-fun DateField(
-    date: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.background)
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                RoundedCornerShape(8.dp)
-            )
-            .padding(10.dp)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Icon(
-            Icons.Filled.CalendarToday,
-            contentDescription = "Tanggal",
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(date, color = MaterialTheme.colorScheme.onSurface)
-    }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onClose) { Text("OK") } }
+    )
 }
 
 @Composable
-fun EditHistoryCard(item: ReturnHistoryItem) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(item.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(
-                item.member,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            DataRow(label = "Tanggal Pinjam", value = item.borrowDate)
-            DataRow(label = "Jatuh Tempo", value = item.dueDate)
-        }
-    }
+private fun SimpleInfoDialog(
+    title: String,
+    message: String,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onClose) { Text("OK") } }
+    )
 }
 
 // =========================================================
-// 4. FUNGSI UTAMA UNTUK MODUL PENGEMBALIAN (ReturnScreen)
+// 4. FUNGSI UTAMA ReturnScreen
 // =========================================================
-
 @Composable
 fun ReturnScreen() {
+    // Setup FCM (permission + token)
+    FirebaseNotificationSetup(
+        onTokenReady = { token ->
+            // Jika Anda memiliki endpoint backend untuk menyimpan token admin:
+            // panggil API di sini (opsional).
+            // Contoh pseudo:
+            // coroutineScope.launch { apiService.registerFcmToken(RegisterTokenRequest(token)) }
+            Log.d("FCM", "Token ready (ReturnScreen): $token")
+        }
+    )
+
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val apiService: ApiService = remember { createApiService(tokenManager) }
@@ -1011,7 +866,6 @@ fun ReturnScreen() {
     var historyList by remember { mutableStateOf(emptyList<ReturnHistoryItem>()) }
     var showDeleteDialogForId by remember { mutableStateOf<String?>(null) }
 
-    // load history dari backend
     LaunchedEffect(Unit) {
         try {
             val response = apiService.getReturnHistory()
@@ -1056,8 +910,36 @@ fun ReturnScreen() {
             ReturnListContent(
                 historyList = historyList,
                 onAddClick = { navController.navigate("return_add") },
+                onDetailClick = { id -> navController.navigate("return_detail/$id") }
+            )
+        }
+
+        composable("return_detail/{id}") { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("id") ?: return@composable
+            val selectedItem = historyList.find { it.id == itemId }
+
+            ReturnDetailContent(
+                selectedItem = selectedItem,
+                onBackClick = { navController.popBackStack() },
                 onEditClick = { id -> navController.navigate("return_edit/$id") },
-                onDeleteClick = { id -> showDeleteDialogForId = id }
+                onDeleteConfirmed = { idToDelete ->
+                    coroutineScope.launch {
+                        try {
+                            val intId = idToDelete.toIntOrNull()
+                            if (intId == null) return@launch
+
+                            val response = apiService.deleteReturn(intId)
+                            if (response.success) {
+                                historyList = historyList.filter { it.id != idToDelete }
+                                navController.popBackStack()
+                            } else {
+                                Log.e("ReturnScreen", "Delete gagal: ${response.message}")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ReturnScreen", "Error delete return: ${e.message}")
+                        }
+                    }
+                }
             )
         }
 
@@ -1066,7 +948,9 @@ fun ReturnScreen() {
                 onBackClick = { navController.popBackStack() },
                 onDataAdded = { newItem ->
                     historyList = listOf(newItem) + historyList
-                    navController.popBackStack()
+                    navController.navigate("return_detail/${newItem.id}") {
+                        popUpTo("return_list") { inclusive = false }
+                    }
                 }
             )
         }
@@ -1079,11 +963,9 @@ fun ReturnScreen() {
                 selectedItem = selectedItem,
                 onBackClick = { navController.popBackStack() },
                 onUpdate = { updatedItem ->
-                    historyList = historyList.map {
-                        if (it.id == updatedItem.id) updatedItem else it
-                    }
-                    navController.popBackStack()
-                }
+                    historyList = historyList.map { if (it.id == updatedItem.id) updatedItem else it }
+                },
+                onDoneNavigateBack = { navController.popBackStack() }
             )
         }
     }
@@ -1097,7 +979,20 @@ fun ReturnScreen() {
     }
 }
 
+private const val BASE_URL = "http://10.0.2.2:3000/api/"
+
+private fun normalizeToFullUrl(pathOrUrl: String?): String? {
+    if (pathOrUrl.isNullOrBlank()) return null
+    return when {
+        pathOrUrl.startsWith("http") -> pathOrUrl
+        pathOrUrl.startsWith("/") -> BASE_URL.trimEnd('/') + pathOrUrl
+        else -> BASE_URL.trimEnd('/') + "/" + pathOrUrl
+    }
+}
+
 private fun ReturnHistoryResponse.toUiModel(): ReturnHistoryItem {
+    val fullProofUrl = normalizeToFullUrl(buktiKerusakanUrl)
+
     return ReturnHistoryItem(
         id = id.toString(),
         title = judulBuku,
@@ -1110,7 +1005,7 @@ private fun ReturnHistoryResponse.toUiModel(): ReturnHistoryItem {
         fine = formatRupiah(denda),
         isLate = denda > 0,
         keterangan = keterangan,
-        proofUriString = buktiKerusakanUrl
+        proofUriString = fullProofUrl
     )
 }
 
@@ -1118,9 +1013,20 @@ private fun ReturnHistoryResponse.toUiModel(): ReturnHistoryItem {
 private fun ReturnListContent(
     historyList: List<ReturnHistoryItem>,
     onAddClick: () -> Unit,
-    onEditClick: (String) -> Unit,
-    onDeleteClick: (String) -> Unit
+    onDetailClick: (String) -> Unit
 ) {
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    val filteredList = remember(searchQuery, historyList) {
+        val q = searchQuery.trim().lowercase()
+        if (q.isBlank()) historyList
+        else historyList.filter { item ->
+            item.title.lowercase().contains(q) ||
+                    item.member.lowercase().contains(q) ||
+                    item.memberNim.lowercase().contains(q)
+        }
+    }
+
     Scaffold(
         topBar = { AppBarHeader(title = "Pengembalian Buku") },
         floatingActionButton = {
@@ -1128,9 +1034,7 @@ private fun ReturnListContent(
                 onClick = onAddClick,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Tambah")
-            }
+            ) { Icon(Icons.Filled.Add, contentDescription = "Tambah") }
         }
     ) { padding ->
         LazyColumn(
@@ -1141,30 +1045,35 @@ private fun ReturnListContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(0.dp))
-                Text(
-                    "Pengembalian Buku",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Pengembalian Buku", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                SummaryCard(
-                    total = historyList.size,
-                    late = historyList.count { it.isLate }
-                )
+                SummaryCard(total = historyList.size, late = historyList.count { it.isLate })
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Riwayat Pengembalian",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+
+                Text("Riwayat Pengembalian", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Cari nama anggota / judul buku") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Cari") },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Hapus")
+                            }
+                        }
+                    }
                 )
             }
-            if (historyList.isEmpty()) {
+
+            if (filteredList.isEmpty()) {
                 item {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -1176,29 +1085,24 @@ private fun ReturnListContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Tidak ada riwayat pengembalian.",
+                            if (searchQuery.isBlank()) "Tidak ada riwayat pengembalian."
+                            else "Data tidak ditemukan untuk: \"$searchQuery\"",
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
                     }
                 }
             } else {
-                items(historyList) { item ->
-                    HistoryItem(
-                        item = item,
-                        onEdit = onEditClick,
-                        onDelete = onDeleteClick
-                    )
+                items(filteredList) { item ->
+                    HistoryItem(item = item, onDetail = onDetailClick)
                 }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
 // =========================================================
-// 5. RETURN ADD
+// 5. RETURN ADD (notifikasi lokal dihapus; flow return tetap sama)
 // =========================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReturnAddContent(
@@ -1212,8 +1116,12 @@ private fun ReturnAddContent(
 
     var searchQuery by remember { mutableStateOf("") }
     var searchJob by remember { mutableStateOf<Job?>(null) }
+
     var showSuccessDialog by remember { mutableStateOf(false) }
     var pendingNewItem by remember { mutableStateOf<ReturnHistoryItem?>(null) }
+
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     var filteredMembers by remember { mutableStateOf<List<Member>>(emptyList()) }
     var isLoadingMembers by remember { mutableStateOf(false) }
@@ -1223,9 +1131,15 @@ private fun ReturnAddContent(
     var availableBorrowings by remember { mutableStateOf<List<ActiveBorrowing>>(emptyList()) }
     var isLoadingBorrowings by remember { mutableStateOf(false) }
 
-    var proofUri by remember { mutableStateOf<Uri?>(null) }
-    var proofFileName by remember { mutableStateOf<String?>(null) }
+    // Bukti lokal, upload setelah return dibuat (punya returnId)
+    var proofLocalUri by remember { mutableStateOf<Uri?>(null) }
+
     var description by remember { mutableStateOf("") }
+
+    var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
+    var showPickerDialog by remember { mutableStateOf(false) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
+    var tempProofUri by remember { mutableStateOf<Uri?>(null) }
 
     val todayMillis = remember { Calendar.getInstance().timeInMillis }
     var returnDate by remember { mutableStateOf(dateFormat.format(Date(todayMillis))) }
@@ -1233,15 +1147,21 @@ private fun ReturnAddContent(
 
     val isButtonEnabled = selectedMember != null && selectedBorrowing != null
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = GetContent(),
-        onResult = { uri: Uri? ->
-            if (uri != null) {
-                proofUri = uri
-                proofFileName = "bukti_kerusakan_${UUID.randomUUID().toString().take(4)}.jpg"
-            }
+    val galleryLauncher = rememberLauncherForActivityResult(contract = GetContent()) { uri ->
+        if (uri != null) {
+            tempProofUri = uri
+            showPreviewDialog = true
         }
-    )
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            tempProofUri = cameraTempUri
+            showPreviewDialog = true
+        }
+    }
 
     // 1. PENCARIAN ANGGOTA
     LaunchedEffect(searchQuery) {
@@ -1303,9 +1223,15 @@ private fun ReturnAddContent(
         }
     }
 
-    // 3. SUBMIT PENGEMBALIAN
+    // 3. SUBMIT PENGEMBALIAN (create → upload proof → update)
     val handleSubmit: () -> Unit = handleSubmit@{
         if (selectedBorrowing == null || selectedMember == null) return@handleSubmit
+
+        if (!isReturnDateValid(selectedBorrowing!!.borrowDate, returnDate)) {
+            showErrorDialog = true
+            errorMessage = "Tanggal pengembalian tidak boleh sebelum tanggal peminjaman."
+            return@handleSubmit
+        }
 
         val finalDueDate = selectedBorrowing!!.dueDate
         val finalBorrowDate = selectedBorrowing!!.borrowDate
@@ -1313,41 +1239,71 @@ private fun ReturnAddContent(
 
         coroutineScope.launch {
             try {
-                val request = ReturnRequest(
+                val createRequest = ReturnRequest(
                     peminjamanId = selectedBorrowing!!.borrowingId.toInt(),
                     tanggalPengembalian = returnDate,
                     denda = fineAmount,
-                    buktiKerusakanUrl = proofUri?.toString(),
+                    buktiKerusakanUrl = null,
                     keterangan = description.takeIf { it.isNotBlank() }
                 )
 
-                val response = apiService.submitReturn(request)
+                val createResp = apiService.submitReturn(createRequest)
+                val createdId = createResp.data?.id
 
-                if (response.success) {
-                    val newItem = ReturnHistoryItem(
-                        id = UUID.randomUUID().toString(),
-                        title = selectedBorrowing!!.book.title,
-                        member = selectedMember!!.name,
-                        memberNim = selectedMember!!.nim,
-                        loanId = selectedBorrowing!!.borrowingId,
-                        borrowDate = finalBorrowDate,
-                        dueDate = finalDueDate,
-                        returnDate = returnDate,
-                        fine = formatRupiah(fineAmount),
-                        isLate = fineAmount > 0,
-                        keterangan = description.takeIf { it.isNotBlank() },
-                        proofUriString = proofUri?.toString()
-                    )
-
-                    // SIMPAN dulu itemnya → nanti dikirim ke list saat user tekan OK di dialog
-                    pendingNewItem = newItem
-                    showSuccessDialog = true
-                } else {
-                    Log.e("ReturnAddContent", "Submit gagal: ${response.message}")
+                if (!createResp.success || createdId == null) {
+                    showErrorDialog = true
+                    errorMessage = createResp.message ?: "Gagal menambah pengembalian."
+                    return@launch
                 }
 
+                var finalProofUrlFull: String? = null
+                if (proofLocalUri != null) {
+                    try {
+                        val part = uriToMultipart(context, proofLocalUri!!)
+                        val uploadResp = apiService.uploadDamageProof(
+                            returnId = createdId,
+                            buktiKerusakan = part
+                        )
+
+                        if (uploadResp.success && !uploadResp.buktiKerusakanUrl.isNullOrBlank()) {
+                            finalProofUrlFull = normalizeToFullUrl(uploadResp.buktiKerusakanUrl)
+
+                            val updateReq = createRequest.copy(
+                                buktiKerusakanUrl = uploadResp.buktiKerusakanUrl
+                            )
+                            val updateResp = apiService.updateReturn(createdId.toString(), updateReq)
+                            if (!updateResp.success) {
+                                Log.e("ReturnAdd", "Return dibuat tapi gagal simpan bukti: ${updateResp.message}")
+                            }
+                        } else {
+                            Log.e("ReturnAdd", "Upload bukti gagal: ${uploadResp.message}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ReturnAdd", "Upload bukti error: ${e.message}")
+                    }
+                }
+
+                val newItem = ReturnHistoryItem(
+                    id = createdId.toString(),
+                    title = selectedBorrowing!!.book.title,
+                    member = selectedMember!!.name,
+                    memberNim = selectedMember!!.nim,
+                    loanId = selectedBorrowing!!.borrowingId,
+                    borrowDate = finalBorrowDate,
+                    dueDate = finalDueDate,
+                    returnDate = returnDate,
+                    fine = formatRupiah(fineAmount),
+                    isLate = fineAmount > 0,
+                    keterangan = description.takeIf { it.isNotBlank() },
+                    proofUriString = finalProofUrlFull
+                )
+
+                pendingNewItem = newItem
+                showSuccessDialog = true
+
             } catch (e: Exception) {
-                Log.e("ReturnAddContent", "Error submit pengembalian: ${e.message}")
+                showErrorDialog = true
+                errorMessage = "Error submit pengembalian: ${e.message}"
             }
         }
     }
@@ -1404,7 +1360,6 @@ private fun ReturnAddContent(
                         member = selectedMember!!,
                         isSelected = true
                     ) {
-                        // klik lagi untuk batal pilih
                         selectedMember = null
                         selectedBorrowing = null
                     }
@@ -1424,12 +1379,7 @@ private fun ReturnAddContent(
                         }
                     }
                 } else if (filteredMembers.isEmpty()) {
-                    item {
-                        Text(
-                            "Anggota tidak ditemukan.",
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+                    item { Text("Anggota tidak ditemukan.", color = MaterialTheme.colorScheme.error) }
                 } else {
                     items(filteredMembers) { member ->
                         MemberCard(
@@ -1437,7 +1387,7 @@ private fun ReturnAddContent(
                             isSelected = selectedMember?.nim == member.nim
                         ) {
                             selectedMember = it
-                            searchQuery = "" // Kosongkan pencarian setelah memilih
+                            searchQuery = ""
                         }
                     }
                 }
@@ -1484,7 +1434,7 @@ private fun ReturnAddContent(
                         ) { selectedBorrowing = null }
                     }
 
-                        else -> {
+                    else -> {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             availableBorrowings.forEach { borrowing ->
                                 BorrowingCard(
@@ -1506,7 +1456,7 @@ private fun ReturnAddContent(
                     )
                 } else {
                     Text(
-                        "Tanggal Pinjam dan Jatuh Tempo akan ditampilkan di sini setelah Anda memilih buku.",
+                        "Tanggal Pinjam dan Jatuh Tempo akan ditampilkan setelah Anda memilih buku.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         modifier = Modifier.padding(vertical = 8.dp)
@@ -1521,12 +1471,10 @@ private fun ReturnAddContent(
                 DateField(returnDate) { datePickerTarget = "return" }
 
                 if (selectedBorrowing != null) {
-                    val fineAmount =
-                        calculateFine(selectedBorrowing!!.dueDate, returnDate)
-                    val fineColor =
-                        if (fineAmount > 0) MaterialTheme.colorScheme.error else FineGreen
+                    val fineAmount2 = calculateFine(selectedBorrowing!!.dueDate, returnDate)
+                    val fineColor = if (fineAmount2 > 0) MaterialTheme.colorScheme.error else FineGreen
                     Text(
-                        "Denda Dihitung: ${formatRupiah(fineAmount)}",
+                        "Denda Dihitung: ${formatRupiah(fineAmount2)}",
                         fontWeight = FontWeight.Bold,
                         color = fineColor,
                         modifier = Modifier.padding(top = 8.dp)
@@ -1537,10 +1485,39 @@ private fun ReturnAddContent(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 UploadProofSection(
-                    onUploadClick = { imagePickerLauncher.launch("image/*") },
-                    proofUri = proofUri,
-                    proofFileName = proofFileName
+                    proofUri = proofLocalUri,
+                    onPickClick = { showPickerDialog = true }
                 )
+
+                if (showPickerDialog) {
+                    ProofPickerDialog(
+                        onDismiss = { showPickerDialog = false },
+                        onCameraClick = {
+                            showPickerDialog = false
+                            cameraTempUri = createCameraImageUri(context)
+                            cameraLauncher.launch(cameraTempUri!!)
+                        },
+                        onGalleryClick = {
+                            showPickerDialog = false
+                            galleryLauncher.launch("image/*")
+                        }
+                    )
+                }
+
+                if (showPreviewDialog && tempProofUri != null) {
+                    ProofPreviewDialog(
+                        imageUri = tempProofUri!!,
+                        onConfirm = {
+                            proofLocalUri = tempProofUri
+                            showPreviewDialog = false
+                            tempProofUri = null
+                        },
+                        onCancel = {
+                            showPreviewDialog = false
+                            tempProofUri = null
+                        }
+                    )
+                }
             }
 
             item {
@@ -1563,9 +1540,17 @@ private fun ReturnAddContent(
             onDismiss = { showSuccessDialog = false },
             onOk = {
                 showSuccessDialog = false
-                pendingNewItem?.let { onDataAdded(it) }   // tambah ke list + kembali ke halaman sebelumnya
+                pendingNewItem?.let { onDataAdded(it) }
                 pendingNewItem = null
             }
+        )
+    }
+
+    if (showErrorDialog) {
+        SimpleErrorDialog(
+            title = "Gagal",
+            message = errorMessage,
+            onClose = { showErrorDialog = false }
         )
     }
 
@@ -1577,32 +1562,25 @@ private fun ReturnAddContent(
         }
         SimpleDatePickerDialog(
             initialDate = initialTime,
-            onDateSelected = { newDate ->
-                returnDate = newDate
-            },
+            onDateSelected = { newDate -> returnDate = newDate },
             onDismiss = { datePickerTarget = null }
         )
     }
 }
 
 // =========================================================
-// 6. RETURN EDIT
+// 6. RETURN EDIT (tetap; hanya notifikasi lokal dihapus)
 // =========================================================
-
 @Composable
 private fun ReturnEditContent(
     selectedItem: ReturnHistoryItem?,
     onBackClick: () -> Unit,
-    onUpdate: (ReturnHistoryItem) -> Unit
+    onUpdate: (ReturnHistoryItem) -> Unit,
+    onDoneNavigateBack: () -> Unit
 ) {
     if (selectedItem == null) {
         Scaffold(
-            topBar = {
-                AppBarHeader(
-                    title = "Edit Pengembalian",
-                    onBackClick = onBackClick
-                )
-            }
+            topBar = { AppBarHeader(title = "Edit Pengembalian", onBackClick = onBackClick) }
         ) { padding ->
             Box(
                 modifier = Modifier
@@ -1633,23 +1611,39 @@ private fun ReturnEditContent(
     val tokenManager = remember { TokenManager(context) }
     val apiService: ApiService = remember { createApiService(tokenManager) }
     val coroutineScope = rememberCoroutineScope()
-
     val itemToEdit = selectedItem
 
     var returnDate by remember { mutableStateOf(itemToEdit.returnDate) }
-    var proofUri by remember { mutableStateOf(itemToEdit.proofUriString?.toUri()) }
-    var proofFileName by remember { mutableStateOf<String?>(null) }
+    var proofLocalUri by remember { mutableStateOf<Uri?>(null) }
+    var proofServerUrl by remember { mutableStateOf(itemToEdit.proofUriString) }
+
     var description by remember { mutableStateOf(itemToEdit.keterangan ?: "") }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = GetContent(),
-        onResult = { uri: Uri? ->
-            if (uri != null) {
-                proofUri = uri
-                proofFileName = "bukti_kerusakan_${UUID.randomUUID().toString().take(4)}.jpg"
-            }
+    var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
+    var showPickerDialog by remember { mutableStateOf(false) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
+    var tempProofUri by remember { mutableStateOf<Uri?>(null) }
+
+    var isSaving by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var showSavedDialog by remember { mutableStateOf(false) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(contract = GetContent()) { uri ->
+        if (uri != null) {
+            tempProofUri = uri
+            showPreviewDialog = true
         }
-    )
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            tempProofUri = cameraTempUri
+            showPreviewDialog = true
+        }
+    }
 
     val fineAmountInt = remember(returnDate, itemToEdit.dueDate) {
         calculateFine(itemToEdit.dueDate, returnDate)
@@ -1658,43 +1652,55 @@ private fun ReturnEditContent(
     val statusTepatWaktu = !statusTerlambat
     val fineAmountText = formatRupiah(fineAmountInt)
 
-    val handleUpdate: () -> Unit = {
+    val handleUpdate: () -> Unit = handleUpdate@{
         val peminjamanIdInt = itemToEdit.loanId.toIntOrNull()
-
         if (peminjamanIdInt == null) {
-            Log.e("ReturnEdit", "loanId bukan angka: ${itemToEdit.loanId}")
-        } else {
-            val fineAmount = calculateFine(itemToEdit.dueDate, returnDate)
-            val isLate = fineAmount > 0
-            val fineText = formatRupiah(fineAmount)
+            showErrorDialog = true
+            errorMessage = "ID peminjaman tidak valid."
+            return@handleUpdate
+        }
 
-            val updatedItem = itemToEdit.copy(
-                fine = fineText,
-                isLate = isLate,
-                returnDate = returnDate,
-                keterangan = description.takeIf { it.isNotBlank() },
-                proofUriString = proofUri?.toString()
-            )
+        if (!isReturnDateValid(itemToEdit.borrowDate, returnDate)) {
+            showErrorDialog = true
+            errorMessage = "Tanggal pengembalian tidak boleh sebelum tanggal peminjaman."
+            return@handleUpdate
+        }
 
-            coroutineScope.launch {
-                try {
-                    val request = ReturnRequest(
-                        peminjamanId = peminjamanIdInt,
-                        tanggalPengembalian = returnDate,
-                        denda = fineAmount,
-                        buktiKerusakanUrl = proofUri?.toString(),
-                        keterangan = description.takeIf { it.isNotBlank() }
+        isSaving = true
+        coroutineScope.launch {
+            try {
+                val fineAmount = calculateFine(itemToEdit.dueDate, returnDate)
+
+                val request = ReturnRequest(
+                    peminjamanId = peminjamanIdInt,
+                    tanggalPengembalian = returnDate,
+                    denda = fineAmount,
+                    buktiKerusakanUrl = proofServerUrl,
+                    keterangan = description.takeIf { it.isNotBlank() }
+                )
+
+                val response = apiService.updateReturn(itemToEdit.id, request)
+
+                if (response.success) {
+                    val updatedItem = itemToEdit.copy(
+                        fine = formatRupiah(fineAmount),
+                        isLate = fineAmount > 0,
+                        returnDate = returnDate,
+                        keterangan = description.takeIf { it.isNotBlank() },
+                        proofUriString = proofServerUrl
                     )
-
-                    val response = apiService.updateReturn(itemToEdit.id, request)
-                    if (response.success) {
-                        onUpdate(updatedItem)
-                    } else {
-                        Log.e("ReturnEdit", "Update gagal: ${response.message}")
-                    }
-                } catch (e: Exception) {
-                    Log.e("ReturnEdit", "Error update return: ${e.message}")
+                    onUpdate(updatedItem)
+                    showSavedDialog = true
+                } else {
+                    showErrorDialog = true
+                    errorMessage = response.message ?: "Update gagal."
                 }
+
+            } catch (e: Exception) {
+                showErrorDialog = true
+                errorMessage = "Error update: ${e.message}"
+            } finally {
+                isSaving = false
             }
         }
     }
@@ -1729,35 +1735,25 @@ private fun ReturnEditContent(
                 )
 
                 DateField(returnDate) {
-                    val currentDate = try {
-                        dateFormat.parse(returnDate)
-                    } catch (_: Exception) {
-                        null
-                    }
-
-                    val calendar = Calendar.getInstance().apply {
-                        if (currentDate != null) time = currentDate
-                    }
+                    val currentDate = try { dateFormat.parse(returnDate) } catch (_: Exception) { null }
+                    val calendar = Calendar.getInstance().apply { if (currentDate != null) time = currentDate }
 
                     val year = calendar.get(Calendar.YEAR)
                     val month = calendar.get(Calendar.MONTH)
                     val day = calendar.get(Calendar.DAY_OF_MONTH)
 
-                    DatePickerDialog(
+                    AndroidDatePickerDialog(
                         context,
                         { _, y, m, d ->
                             val pickedCal = Calendar.getInstance()
                             pickedCal.set(y, m, d)
                             returnDate = dateFormat.format(pickedCal.time)
                         },
-                        year,
-                        month,
-                        day
+                        year, month, day
                     ).show()
                 }
 
-                val fineColor =
-                    if (fineAmountInt > 0) MaterialTheme.colorScheme.error else FineGreen
+                val fineColor = if (fineAmountInt > 0) MaterialTheme.colorScheme.error else FineGreen
                 Text(
                     "Denda Dihitung: $fineAmountText",
                     fontWeight = FontWeight.Bold,
@@ -1767,11 +1763,71 @@ private fun ReturnEditContent(
             }
 
             item {
+                val previewUri = proofLocalUri ?: proofServerUrl?.let { Uri.parse(normalizeToFullUrl(it) ?: it) }
+
                 UploadProofSection(
-                    onUploadClick = { imagePickerLauncher.launch("image/*") },
-                    proofUri = proofUri,
-                    proofFileName = proofFileName
+                    proofUri = previewUri,
+                    onPickClick = { showPickerDialog = true }
                 )
+
+                if (showPickerDialog) {
+                    ProofPickerDialog(
+                        onDismiss = { showPickerDialog = false },
+                        onCameraClick = {
+                            showPickerDialog = false
+                            cameraTempUri = createCameraImageUri(context)
+                            cameraLauncher.launch(cameraTempUri!!)
+                        },
+                        onGalleryClick = {
+                            showPickerDialog = false
+                            galleryLauncher.launch("image/*")
+                        }
+                    )
+                }
+
+                if (showPreviewDialog && tempProofUri != null) {
+                    ProofPreviewDialog(
+                        imageUri = tempProofUri!!,
+                        onConfirm = {
+                            proofLocalUri = tempProofUri
+                            showPreviewDialog = false
+
+                            coroutineScope.launch {
+                                try {
+                                    val returnIdInt = itemToEdit.id.toIntOrNull()
+                                    if (returnIdInt == null) {
+                                        showErrorDialog = true
+                                        errorMessage = "ID pengembalian tidak valid untuk upload bukti."
+                                        return@launch
+                                    }
+
+                                    val part = uriToMultipart(context, proofLocalUri!!)
+                                    val resp = apiService.uploadDamageProof(
+                                        returnId = returnIdInt,
+                                        buktiKerusakan = part
+                                    )
+
+                                    if (resp.success && !resp.buktiKerusakanUrl.isNullOrBlank()) {
+                                        proofServerUrl = normalizeToFullUrl(resp.buktiKerusakanUrl)
+                                    } else {
+                                        showErrorDialog = true
+                                        errorMessage = resp.message ?: "Ganti bukti kerusakan gagal."
+                                    }
+
+                                } catch (e: Exception) {
+                                    showErrorDialog = true
+                                    errorMessage = "Ganti bukti kerusakan error: ${e.message}"
+                                }
+                            }
+
+                            tempProofUri = null
+                        },
+                        onCancel = {
+                            showPreviewDialog = false
+                            tempProofUri = null
+                        }
+                    )
+                }
             }
 
             item {
@@ -1788,7 +1844,6 @@ private fun ReturnEditContent(
 
             item {
                 Text("Status Pengembalian", fontWeight = FontWeight.SemiBold)
-
                 StatusSelection(
                     isTepatWaktuSelected = statusTepatWaktu,
                     isTerlambatSelected = statusTerlambat,
@@ -1799,8 +1854,7 @@ private fun ReturnEditContent(
                 if (statusTerlambat) {
                     val daysLate = try {
                         TimeUnit.DAYS.convert(
-                            dateFormat.parse(returnDate)!!.time -
-                                    dateFormat.parse(itemToEdit.dueDate)!!.time,
+                            dateFormat.parse(returnDate)!!.time - dateFormat.parse(itemToEdit.dueDate)!!.time,
                             TimeUnit.MILLISECONDS
                         )
                     } catch (_: Exception) {
@@ -1818,12 +1872,15 @@ private fun ReturnEditContent(
             item {
                 Button(
                     onClick = handleUpdate,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary)
                 ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text(
                         "Simpan Perubahan",
                         color = MaterialTheme.colorScheme.onPrimary,
@@ -1834,11 +1891,361 @@ private fun ReturnEditContent(
             }
         }
     }
+
+    if (showErrorDialog) {
+        SimpleErrorDialog(
+            title = "Gagal",
+            message = errorMessage,
+            onClose = { showErrorDialog = false }
+        )
+    }
+
+    if (showSavedDialog) {
+        SimpleInfoDialog(
+            title = "Berhasil",
+            message = "Perubahan pengembalian berhasil disimpan.",
+            onClose = {
+                showSavedDialog = false
+                onDoneNavigateBack()
+            }
+        )
+    }
 }
 
 // =========================================================
-// 7. NAVIGASI UTAMA APLIKASI
+// SISANYA: Komponen Anda (DatePickerFields, DateField, EditHistoryCard,
+// MemberCard, BorrowingCard, ReturnDetailContent, AndalibApp) tetap sama
 // =========================================================
+
+@Composable
+fun DatePickerFields(
+    borrowDate: String,
+    dueDate: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+    ) {
+        Text("Detail Peminjaman", fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Tanggal Pinjam",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                OutlinedTextField(
+                    value = borrowDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Jatuh Tempo",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                OutlinedTextField(
+                    value = dueDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = MaterialTheme.colorScheme.error
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DateField(
+    date: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.background)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                RoundedCornerShape(8.dp)
+            )
+            .padding(10.dp)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Icon(
+            Icons.Filled.CalendarToday,
+            contentDescription = "Tanggal",
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(date, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+fun EditHistoryCard(item: ReturnHistoryItem) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(item.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(
+                item.member,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            DataRow(label = "Tanggal Pinjam", value = item.borrowDate)
+            DataRow(label = "Jatuh Tempo", value = item.dueDate)
+        }
+    }
+}
+
+@Composable
+fun MemberCard(
+    member: Member,
+    isSelected: Boolean,
+    onClick: (Member) -> Unit
+) {
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val bgColor =
+        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        else MaterialTheme.colorScheme.surfaceVariant
+
+    val nameColor =
+        if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(member) },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = BorderStroke(1.5.dp, borderColor),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 4.dp else 0.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else Color.Gray.copy(alpha = 0.2f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    member.name.first().toString(),
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.Black
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    member.name,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = nameColor
+                )
+                Text(
+                    "NIM: ${member.nim} | ${member.email}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+
+            Icon(
+                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.AutoMirrored.Filled.ArrowForwardIos,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun BorrowingCard(
+    borrowing: ActiveBorrowing,
+    isSelected: Boolean,
+    onClick: (ActiveBorrowing) -> Unit
+) {
+    val borderColor =
+        if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+    val bgColor =
+        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+        else MaterialTheme.colorScheme.background
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { NoRippleInteractionSource() },
+                indication = null
+            ) { onClick(borrowing) }
+            .border(1.5.dp, borderColor, RoundedCornerShape(8.dp)),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    borrowing.book.title,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Dipilih",
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+            }
+            Text(
+                borrowing.book.author,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            DataRow(label = "Tgl Pinjam", value = borrowing.borrowDate)
+            DataRow(label = "Jatuh Tempo", value = borrowing.dueDate)
+        }
+    }
+}
+
+@Composable
+private fun ReturnDetailContent(
+    selectedItem: ReturnHistoryItem?,
+    onBackClick: () -> Unit,
+    onEditClick: (String) -> Unit,
+    onDeleteConfirmed: (String) -> Unit
+) {
+    if (selectedItem == null) {
+        Scaffold(topBar = { AppBarHeader(title = "Detail Pengembalian", onBackClick = onBackClick) }) { padding ->
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) { Text("Data pengembalian tidak ditemukan.", color = MaterialTheme.colorScheme.error) }
+        }
+        return
+    }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = { AppBarHeader(title = "Detail Pengembalian", onBackClick = onBackClick) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Text("Ringkasan", fontWeight = FontWeight.Bold)
+                EditHistoryCard(item = selectedItem)
+            }
+
+            item {
+                Text("Detail", fontWeight = FontWeight.Bold)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        DataRow("Nama Anggota", selectedItem.member)
+                        DataRow("NIM", selectedItem.memberNim)
+                        DataRow("Tanggal Pinjam", selectedItem.borrowDate)
+                        DataRow("Jatuh Tempo", selectedItem.dueDate)
+                        DataRow("Tanggal Pengembalian", selectedItem.returnDate)
+                        if (!selectedItem.fine.isNullOrBlank()) DataRow("Denda", selectedItem.fine!!)
+                        if (!selectedItem.keterangan.isNullOrBlank()) DataRow("Keterangan", selectedItem.keterangan!!)
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { onEditClick(selectedItem.id) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Edit", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Hapus", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onError)
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        DeleteConfirmationDialog(
+            onDismiss = { showDeleteDialog = false },
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteConfirmed(selectedItem.id)
+            },
+            itemId = selectedItem.id
+        )
+    }
+}
 
 @Composable
 fun PlaceholderScreen(title: String, modifier: Modifier = Modifier) {
@@ -1886,16 +2293,14 @@ fun AndalibApp() {
                                     Icon(
                                         item.icon,
                                         contentDescription = item.title,
-                                        tint = if (selected)
-                                            MaterialTheme.colorScheme.primary
+                                        tint = if (selected) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
                                 label = {
                                     Text(
                                         item.title,
-                                        color = if (selected)
-                                            MaterialTheme.colorScheme.primary
+                                        color = if (selected) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -1910,37 +2315,30 @@ fun AndalibApp() {
                 startDestination = BottomNavItem.Return.route,
                 modifier = Modifier.padding(innerPadding)
             ) {
-                composable(
-                    BottomNavItem.Home.route,
+                composable(BottomNavItem.Home.route,
                     enterTransition = { NavAnimations.tabEnter() },
                     exitTransition = { NavAnimations.tabExit() }
                 ) { PlaceholderScreen("Home") }
 
-                composable(
-                    BottomNavItem.Books.route,
+                composable(BottomNavItem.Books.route,
                     enterTransition = { NavAnimations.tabEnter() },
                     exitTransition = { NavAnimations.tabExit() }
                 ) { PlaceholderScreen("Buku") }
 
-                composable(
-                    BottomNavItem.Borrowing.route,
+                composable(BottomNavItem.Borrowing.route,
                     enterTransition = { NavAnimations.tabEnter() },
                     exitTransition = { NavAnimations.tabExit() }
                 ) { PlaceholderScreen("Peminjaman") }
 
-                composable(
-                    BottomNavItem.Members.route,
+                composable(BottomNavItem.Members.route,
                     enterTransition = { NavAnimations.tabEnter() },
                     exitTransition = { NavAnimations.tabExit() }
                 ) { PlaceholderScreen("Anggota") }
 
-                composable(
-                    BottomNavItem.Return.route,
+                composable(BottomNavItem.Return.route,
                     enterTransition = { NavAnimations.tabEnter() },
                     exitTransition = { NavAnimations.tabExit() }
-                ) {
-                    ReturnScreen()
-                }
+                ) { ReturnScreen() }
             }
         }
     }
