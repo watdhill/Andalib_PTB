@@ -2,9 +2,7 @@ package com.example.andalib.screen.member
 
 import com.google.gson.annotations.SerializedName
 
-/**
- * Data class untuk Member Notification
- */
+
 data class MemberNotification(
     @SerializedName("id")
     val id: Int,
@@ -37,9 +35,7 @@ data class MemberNotification(
     val created_at: String
 )
 
-/**
- * Response untuk API notifications
- */
+
 data class MemberNotificationResponse(
     @SerializedName("success")
     val success: Boolean,
@@ -51,9 +47,7 @@ data class MemberNotificationResponse(
     val data: List<MemberNotification> = emptyList()
 )
 
-/**
- * Response untuk count unread notifications
- */
+
 data class NotificationCountResponse(
     @SerializedName("success")
     val success: Boolean,
@@ -65,9 +59,7 @@ data class NotificationCountResponse(
     val count: Int = 0
 )
 
-/**
- * Generic API response
- */
+
 data class ApiResponse(
     @SerializedName("success")
     val success: Boolean,

@@ -4,7 +4,7 @@ const path = require('path');
 
 const prisma = new PrismaClient();
 
-// 1. Menambahkan Anggota Baru
+
 const createAnggota = async (req, res) => {
     const { nim, name, gender, faculty, major, contact, email } = req.body;
     const photoPath = req.file ? req.file.filename : null;
@@ -41,7 +41,6 @@ const createAnggota = async (req, res) => {
     }
 };
 
-// 2. Mendapatkan Semua Anggota
 const getAllAnggota = async (req, res) => {
     try {
         const anggotaList = await prisma.anggota.findMany({
@@ -62,7 +61,6 @@ const getAllAnggota = async (req, res) => {
     }
 };
 
-// 2b. Mendapatkan Detail Anggota Berdasarkan NIM
 const getAnggotaByNim = async (req, res) => {
     const { targetNim } = req.params;
 
@@ -96,7 +94,6 @@ const getAnggotaByNim = async (req, res) => {
     }
 };
 
-// 3. Mengubah Data Anggota (Berdasarkan NIM)
 const updateAnggota = async (req, res) => {
     const { targetNim } = req.params;
     const { name, gender, faculty, major, contact, email } = req.body;
@@ -138,7 +135,6 @@ const updateAnggota = async (req, res) => {
     }
 };
 
-// 4. Menghapus Anggota (Berdasarkan NIM)
 const deleteAnggota = async (req, res) => {
     const { targetNim } = req.params;
 
@@ -165,7 +161,6 @@ const deleteAnggota = async (req, res) => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
 
-        // ========== NOTIFIKASI: CREATE NOTIFICATIONS ==========
         console.log('🔔 Creating notifications...');
         try {
             const allAdmins = await prisma.admin.findMany({
@@ -202,7 +197,6 @@ const deleteAnggota = async (req, res) => {
         } catch (notifError) {
             console.error('❌ Notification error:', notifError.message);
         }
-        // ========== END NOTIFIKASI ==========
 
         res.status(200).json({ success: true, message: 'Anggota berhasil dihapus.' });
     } catch (error) {
@@ -211,9 +205,6 @@ const deleteAnggota = async (req, res) => {
     }
 };
 
-// ============================================================
-// 6. Upload Member Photo
-// ============================================================
 const uploadMemberPhoto = async (req, res) => {
     try {
         const memberId = parseInt(req.params.id);
@@ -225,13 +216,12 @@ const uploadMemberPhoto = async (req, res) => {
             });
         }
 
-        // Check if member exists
+     
         const member = await prisma.anggota.findUnique({
             where: { id: memberId }
         });
 
         if (!member) {
-            // Delete uploaded file if member not found
             fs.unlinkSync(req.file.path);
             return res.status(404).json({
                 success: false,
@@ -239,7 +229,6 @@ const uploadMemberPhoto = async (req, res) => {
             });
         }
 
-        // Delete old photo if exists
         if (member.photoPath) {
             const oldPhotoPath = path.join(__dirname, '..', 'uploads', member.photoPath);
             if (fs.existsSync(oldPhotoPath)) {
@@ -247,7 +236,6 @@ const uploadMemberPhoto = async (req, res) => {
             }
         }
 
-        // Update member with new photo
         const photoPath = req.file.filename;
         const updatedMember = await prisma.anggota.update({
             where: { id: memberId },
@@ -265,7 +253,6 @@ const uploadMemberPhoto = async (req, res) => {
     } catch (error) {
         console.error('Upload Photo Error:', error);
 
-        // Delete uploaded file on error
         if (req.file) {
             fs.unlinkSync(req.file.path);
         }
